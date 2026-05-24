@@ -17,7 +17,7 @@ export default function ReportCard({ report, onPress, compact = false }) {
           </View>
         </View>
         <Text style={styles.meta}>{report.species} · {report.breed}</Text>
-        <Text style={styles.desc}>{report.description.slice(0, 30)}{report.description.length > 30 ? '...' : ''}</Text>
+        <Text style={styles.desc}>{(report.description || '').slice(0, 60)}{(report.description || '').length > 60 ? '...' : ''}</Text>
       </View>
     </Pressable>
   );

@@ -8,8 +8,27 @@ import ReportCard from '../components/ReportCard';
 import PrimaryButton from '../components/PrimaryButton';
 import ConfirmModal from '../components/ConfirmModal';
 import { COLORS } from '../styles/theme';
-import { MOCK_REPORTS } from '../data/mockReports';
 import api from '../api/api';
+
+// Convierte el DTO del backend al formato que usan los componentes de UI
+function mapReporteDTO(dto) {
+  const tipoDesc = (dto.descripcionTipoReporte || '').toLowerCase();
+  const status = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
+  return {
+    id: dto.idReporteMascota,
+    name: dto.nombreMascota || 'Sin nombre',
+    species: dto.descripcionEspecie || '',
+    breed: dto.descripcionRaza || '',
+    description: [dto.descripcionMarcaDistintiva, dto.descripcionTipoReporte].filter(Boolean).join(' · ') || '',
+    status,
+    lat: dto.latitud ?? dto.lat ?? null,
+    lng: dto.longitud ?? dto.lng ?? null,
+    media: [],
+    contact: dto.nombresContacto || '',
+    isMine: false,
+    createdAt: dto.fechaReporte || dto.fechaExtravio || new Date().toISOString(),
+  };
+}
 
 const PAGE_SIZE = 20;
 
@@ -85,7 +104,7 @@ export default function DashboardScreen({ navigation }) {
         const data = res?.data;
         // Soporta respuesta directa como array o paginada de Spring Boot { content: [] }
         const items = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : null);
-        if (items) setReports(items);
+        if (items) setReports(items.map(mapReporteDTO));
         else console.warn('Formato de respuesta inesperado:', data);
       })
       .catch((err) => {
