@@ -89,9 +89,9 @@ jobs:
             sudo chown ec2-user:ec2-user /opt/sanosysalvos/frontend
             cd /opt/sanosysalvos/frontend
 
-            cat > .env <<EOF
-            DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
-            EOF
+            sudo bash -c 'cat > /opt/sanosysalvos/frontend/.env <<EOF
+            DOCKERHUB_USERNAME='"${DOCKERHUB_USERNAME}"'
+            EOF'
 
             cat > docker-compose.yml <<'COMPOSE_EOF'
             version: '3.8'
