@@ -1,16 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import { COLORS } from '../styles/theme';
 
 export default function LogoutScreen({ navigation }) {
+  const handleGoHome = async () => {
+    await AsyncStorage.multiRemove(['token', 'nombreCompleto', 'rol']);
+    navigation.reset({ index: 0, routes: [{ name: 'Index' }] });
+  };
+
   return (
     <ScreenShell title="Cerrar sesión" subtitle="¿Estás seguro de que deseas salir de la app?">
       <View style={styles.card}>
         <Image source={require('../../assets/images/logout.png')} style={styles.image} resizeMode="contain" />
         <Text style={styles.message}>Te esperamos la próxima vez</Text>
-        <PrimaryButton title="Ir a Inicio" onPress={() => navigation.navigate('Index')} />
+        <PrimaryButton title="Ir a Inicio" onPress={handleGoHome} />
       </View>
     </ScreenShell>
   );
@@ -27,16 +33,6 @@ const styles = StyleSheet.create({
     gap: 16,
     alignItems: 'center'
   },
-  imagePlaceholder: {
-    width: '100%',
-    minHeight: 240,
-    borderRadius: 24,
-    backgroundColor: COLORS.soft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border
-  },
   image: {
     width: '88%',
     maxWidth: 420,
@@ -44,8 +40,5 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignSelf: 'center'
   },
-  imageText: { fontSize: 72 },
-  caption: { color: COLORS.muted, marginTop: 12, fontWeight: '700' },
   message: { fontSize: 18, fontWeight: '800', color: COLORS.text, textAlign: 'center' }
 });
-

@@ -15,11 +15,13 @@ export default function LoginScreen({ navigation }) {
       // Llama al API Gateway -> Microservicio de Autenticación
       const response = await api.login(email, password);
       
-      // Guarda el token JWT que te devuelve Spring Boot
-      await AsyncStorage.setItem('token', response.data.token);
-      
-      // Si todo sale bien, navega a la pantalla principal
-      navigation.navigate('Dashboard');
+      const { token, nombreCompleto, rol } = response.data;
+      await AsyncStorage.multiSet([
+        ['token', token],
+        ['nombreCompleto', nombreCompleto ?? ''],
+        ['rol', rol ?? ''],
+      ]);
+      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
       
     } catch (error) {
       console.error(error);
