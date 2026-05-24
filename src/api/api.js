@@ -47,9 +47,25 @@ export default {
   login: (email, password) => api.post('/api/auth/login', { email, contrasena: password }),
   register: (data) => api.post('/api/auth/register', data),
   getProfile: async () => getFromFirstAvailableRoute(AUTH_PROFILE_ROUTES),
+  // Reportes
   getReports: () => api.get('/api/reportes'),
   getReport: id => api.get(`/api/reportes/${id}`),
-  publishReport: data => api.post('/api/reportes', data),
+  createReport: data => api.post('/api/reportes', data),
+  updateReport: (id, data) => api.put(`/api/reportes/${id}`, data),
+  // Mascotas
+  createMascota: data => api.post('/api/mascotas', data),
+  updateMascota: (id, data) => api.put(`/api/mascotas/${id}`, data),
+  // Contactos
+  createContacto: data => api.post('/api/contactos', data),
+  // Catálogos
+  getTiposReporte: () => api.get('/api/catalogos/tipos-reporte'),
+  getEstatus: () => api.get('/api/catalogos/estatus'),
+  getEspecies: () => api.get('/api/catalogos/especies'),
+  getRazas: () => api.get('/api/catalogos/razas'),
+  getSexos: () => api.get('/api/catalogos/sexos'),
+  getMarcasDistintivas: () => api.get('/api/catalogos/marcas-distintivas'),
+  getCanalesPreferencia: () => api.get('/api/catalogos/canales-preferencia'),
+  // Otros
   getGeo: params => api.get('/api/geo', { params }),
   getMatches: reportId => api.get('/api/matching', { params: { reportId } }),
   getNotifications: () => api.get('/api/notificaciones'),
