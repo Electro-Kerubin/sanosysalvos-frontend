@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-RUN npm run build:web
+RUN npx expo export:web 
 
 # Stage 2: nginx
 FROM nginx:alpine
