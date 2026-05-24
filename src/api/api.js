@@ -65,6 +65,9 @@ export default {
   getSexos: () => api.get('/api/catalogos/sexos'),
   getMarcasDistintivas: () => api.get('/api/catalogos/marcas-distintivas'),
   getCanalesPreferencia: () => api.get('/api/catalogos/canales-preferencia'),
+  // Geolocalización
+  getComunas: () => api.get('/api/comunas'),
+  createCoordenada: data => api.post('/api/coordenadas', data),
   // Otros
   getGeo: params => api.get('/api/geo', { params }),
   getMatches: reportId => api.get('/api/matching', { params: { reportId } }),

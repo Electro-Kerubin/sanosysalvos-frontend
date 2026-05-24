@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
+import MapPicker from '../components/MapPicker';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
@@ -57,7 +58,19 @@ export default function PublishReportScreen({ navigation, route }) {
   const [sexos, setSexos] = useState([]);
   const [marcas, setMarcas] = useState([]);
   const [canales, setCanales] = useState([]);
+  const [comunas, setComunas] = useState([]);
   const [loadingCatalogos, setLoadingCatalogos] = useState(true);
+
+  // Coordenadas
+  const [coordLat, setCoordLat] = useState(null);
+  const [coordLng, setCoordLng] = useState(null);
+  const [idComuna, setIdComuna] = useState(null);
+  const [direccion, setDireccion] = useState('');
+
+  const handleCoordinateSelected = useCallback((lat, lng) => {
+    setCoordLat(lat);
+    setCoordLng(lng);
+  }, []);
 
   // Mascota
   const [nombreMascota, setNombreMascota] = useState('');
@@ -94,8 +107,9 @@ export default function PublishReportScreen({ navigation, route }) {
       api.getSexos(),
       api.getMarcasDistintivas(),
       api.getCanalesPreferencia(),
+      api.getComunas().catch(() => ({ data: [] })),
     ])
-      .then(([tipos, estatus, esp, rz, sx, marc, can]) => {
+      .then(([tipos, estatus, esp, rz, sx, marc, can, com]) => {
         setTiposReporte(tipos.data);
         setEstatusList(estatus.data);
         setEspecies(esp.data);
@@ -103,6 +117,7 @@ export default function PublishReportScreen({ navigation, route }) {
         setSexos(sx.data);
         setMarcas(marc.data);
         setCanales(can.data);
+        setComunas((com.data || []).map(c => ({ id: c.idComuna, descripcion: c.nombreComuna })));
       })
       .catch(err => {
         console.error('Error cargando catálogos:', err?.message);
@@ -118,6 +133,7 @@ export default function PublishReportScreen({ navigation, route }) {
     if (!nombreContacto.trim()) return setError('El nombre de contacto es requerido.');
     if (!correo.trim()) return setError('El correo de contacto es requerido.');
     if (!idCanal) return setError('Selecciona el canal de preferencia.');
+    if (coordLat != null && !idComuna) return setError('Selecciona la comuna para la ubicación marcada.');
 
     setError(null);
     setSubmitting(true);
@@ -143,7 +159,7 @@ export default function PublishReportScreen({ navigation, route }) {
       });
       const idContacto = contactoRes.data.idContacto;
 
-      await api.createReport({
+      const reporteRes = await api.createReport({
         idTipoReporte,
         idEstatus,
         idMascota,
@@ -153,6 +169,18 @@ export default function PublishReportScreen({ navigation, route }) {
         fechaAvistamiento: fechaAvistamiento || null,
         fechaReporte: new Date().toISOString(),
       });
+
+      // Guardar coordenada si el usuario marcó una ubicación
+      if (coordLat != null && coordLng != null && idComuna) {
+        const idReporte = reporteRes.data.idReporteMascota;
+        await api.createCoordenada({
+          ubicacionLat: coordLat,
+          ubicacionLon: coordLng,
+          idReporte,
+          idComuna,
+          direccion: direccion.trim() || null,
+        }).catch(err => console.warn('Coordenada no guardada:', err?.message));
+      }
 
       navigation.navigate('Dashboard');
     } catch (err) {
@@ -287,6 +315,35 @@ export default function PublishReportScreen({ navigation, route }) {
             onChangeText={setFechaAvistamiento}
           />
         </Field>
+
+        {/* UBICACIÓN */}
+        <SectionTitle title="Ubicación del avistamiento" />
+
+        <Field label="Haz clic en el mapa para marcar dónde fue visto (opcional)">
+          <MapPicker
+            lat={coordLat}
+            lng={coordLng}
+            onCoordinateSelected={handleCoordinateSelected}
+          />
+        </Field>
+
+        {coordLat != null && (
+          <>
+            <Field label="Comuna *">
+              <SelectPill options={comunas} value={idComuna} onChange={setIdComuna} />
+            </Field>
+
+            <Field label="Dirección (opcional)">
+              <TextInput
+                placeholder="Ej: Av. Providencia 1234"
+                placeholderTextColor={COLORS.muted}
+                style={INPUT_STYLE(COLORS)}
+                value={direccion}
+                onChangeText={setDireccion}
+              />
+            </Field>
+          </>
+        )}
 
         {/* CONTACTO */}
         <SectionTitle title="Datos de contacto" />
