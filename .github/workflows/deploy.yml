@@ -14,24 +14,46 @@ jobs:
 
       - name: Generar nginx.conf con IP del backend
         run: |
-          cat > nginx.conf <<EOF
+          cat > nginx.conf <<'EOF'
           server {
               listen 80;
 
               location / {
                   root /usr/share/nginx/html;
                   index index.html;
-                  try_files \$uri \$uri/ /index.html;
+                  try_files $uri $uri/ /index.html;
               }
 
               location /api/ {
-                  proxy_pass http://${{ secrets.EC2_BACK_HOST }}:8080;
-                  proxy_set_header Host \$host;
-                  proxy_set_header X-Real-IP \$remote_addr;
-                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_pass http://${{ secrets.EC2_BACK_HOST }}:8080/api/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+              location /actuator/ {
+                  proxy_pass http://${{ secrets.EC2_BACK_HOST }}:8080/actuator/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
               }
           }
           EOF
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web
+        run: npx expo export:web
+        env:
+          EXPO_PUBLIC_API_GATEWAY_URL: http://${{ secrets.EC2_FRONT_HOST }}
 
       - name: Login DockerHub
         uses: docker/login-action@v3
@@ -68,7 +90,6 @@ jobs:
           script: |
             export PATH=$PATH:/usr/bin:/usr/local/bin
 
-            # Instalar Docker si no está
             if ! sudo /usr/bin/docker info &> /dev/null; then
               sudo dnf install -y docker
               sudo systemctl enable --now docker
@@ -76,7 +97,6 @@ jobs:
               sudo systemctl restart docker
             fi
 
-            # Instalar Docker Compose plugin si no está
             if ! sudo docker compose version &> /dev/null; then
               COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
               sudo mkdir -p /usr/local/lib/docker/cli-plugins
