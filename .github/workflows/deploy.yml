@@ -12,12 +12,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-        - name: Generar nginx.conf con IP del backend
+      - name: Generar nginx.conf con IP del backend
         run: |
-          cat > nginx.conf <<EOF    # ← sin frontend/
+          cat > nginx.conf <<EOF
           server {
-
-
               listen 80;
 
               location / {
@@ -47,9 +45,11 @@ jobs:
       - name: Build and Push imagen
         uses: docker/build-push-action@v5
         with:
-          context: .               # ← punto en vez de ./frontend
+          context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/sanosysalvos-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     name: Deploy EC2 Frontend
@@ -68,7 +68,6 @@ jobs:
           script: |
             export PATH=$PATH:/usr/bin:/usr/local/bin
 
-            # Instalar Docker si no está
             if ! sudo /usr/bin/docker info &> /dev/null; then
               sudo dnf install -y docker
               sudo systemctl enable --now docker
@@ -77,6 +76,10 @@ jobs:
 
             mkdir -p /opt/sanosysalvos/frontend
             cd /opt/sanosysalvos/frontend
+
+            cat > .env <<EOF
+            DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
+            EOF
 
             cat > docker-compose.yml <<'COMPOSE_EOF'
             version: '3.8'
@@ -88,10 +91,6 @@ jobs:
                 ports:
                   - "80:80"
             COMPOSE_EOF
-
-            cat > .env <<EOF
-            DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
-            EOF
 
             sudo docker compose pull frontend
             sudo docker compose up -d --no-deps frontend
