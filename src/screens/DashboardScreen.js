@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, useWindowDimensions, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, useWindowDimensions, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenShell from '../components/ScreenShell';
 import LogoBanner from '../components/LogoBanner';
@@ -72,8 +72,8 @@ export default function DashboardScreen({ navigation }) {
     return `${day}/${month}/${year}`;
   };
 
-  const [reports, setReports] = useState(MOCK_REPORTS);
-  const [loading, setLoading] = useState(false);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -83,12 +83,15 @@ export default function DashboardScreen({ navigation }) {
       .then((res) => {
         if (!mounted) return;
         const data = res?.data;
-        if (Array.isArray(data) && data.length) setReports(data);
+        // Soporta respuesta directa como array o paginada de Spring Boot { content: [] }
+        const items = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : null);
+        if (items) setReports(items);
+        else console.warn('Formato de respuesta inesperado:', data);
       })
       .catch((err) => {
-        console.warn('Failed to load reports from API, using mock data', err?.message || err);
+        console.error('Error al cargar reportes:', err?.response?.status, err?.message || err);
         if (!mounted) return;
-        setError(err);
+        setError(err?.response?.data?.message || err?.message || 'Error al cargar reportes');
       })
       .finally(() => mounted && setLoading(false));
 
@@ -125,6 +128,18 @@ export default function DashboardScreen({ navigation }) {
           ))}
         </View>
       ) : null}
+
+      {loading && (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator color={COLORS.secondary} />
+          <Text style={styles.loadingText}>Cargando reportes...</Text>
+        </View>
+      )}
+      {error && !loading && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.section}>
@@ -326,5 +341,9 @@ const styles = StyleSheet.create({
     gap: 8
   },
   mobileMenuItem: { paddingVertical: 10, paddingHorizontal: 10 },
-  mobileMenuText: { color: COLORS.text, fontWeight: '700' }
+  mobileMenuText: { color: COLORS.text, fontWeight: '700' },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 8 },
+  loadingText: { color: COLORS.muted, fontSize: 14 },
+  errorBanner: { marginHorizontal: 20, marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#fca5a5' },
+  errorText: { color: '#b91c1c', fontSize: 13, fontWeight: '600' }
 });
