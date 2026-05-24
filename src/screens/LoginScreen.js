@@ -21,6 +21,10 @@ export default function LoginScreen({ navigation }) {
         ['nombreCompleto', nombreCompleto ?? ''],
         ['rol', rol ?? ''],
       ]);
+      // Guardar también en localStorage como respaldo para web
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('token', token);
+      }
       navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
       
     } catch (error) {

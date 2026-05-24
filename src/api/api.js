@@ -30,8 +30,16 @@ async function getFromFirstAvailableRoute(routes) {
 }
 
 api.interceptors.request.use(async config => {
-  const token = await AsyncStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  let token = await AsyncStorage.getItem('token');
+  // Fallback a localStorage en entorno web cuando AsyncStorage devuelve null
+  if (!token && typeof window !== 'undefined' && window.localStorage) {
+    token = window.localStorage.getItem('token');
+  }
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    console.warn('api: no se encontró token para', config.url);
+  }
   return config;
 });
 
