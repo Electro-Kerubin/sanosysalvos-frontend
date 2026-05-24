@@ -50,10 +50,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Crear .env para el build
+        run: echo "EXPO_PUBLIC_API_GATEWAY_URL=http://${{ secrets.EC2_FRONT_HOST }}" > .env
+
       - name: Build web
         run: npx expo export:web
-        env:
-          EXPO_PUBLIC_API_GATEWAY_URL: http://${{ secrets.EC2_FRONT_HOST }}
 
       - name: Login DockerHub
         uses: docker/login-action@v3
