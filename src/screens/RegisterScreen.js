@@ -6,6 +6,7 @@ import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
 export default function RegisterScreen({ navigation }) {
+  const [nombreCompleto, setNombreCompleto] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -16,7 +17,12 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
     try {
-      await api.register(email, password);
+      await api.register({
+        nombreCompleto,
+        email,
+        contrasena: password,
+        idRol: 1,
+      });
       alert('Cuenta creada. Inicia sesión.');
       navigation.navigate('Login');
     } catch (error) {
@@ -29,6 +35,14 @@ export default function RegisterScreen({ navigation }) {
     <ScreenShell title="Sanos y Salvos" subtitle="Encuentra a tu amigo" logo>
       <Text style={styles.title}>Crear cuenta</Text>
       <View style={styles.form}>
+        <TextInput
+          placeholder="Nombre completo"
+          placeholderTextColor={COLORS.muted}
+          style={styles.input}
+          autoCapitalize="words"
+          value={nombreCompleto}
+          onChangeText={setNombreCompleto}
+        />
         <TextInput
           placeholder="Correo electrónico"
           placeholderTextColor={COLORS.muted}

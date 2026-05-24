@@ -37,7 +37,7 @@ api.interceptors.request.use(async config => {
 
 export default {
   login: (email, password) => api.post('/api/auth/login', { email, password }),
-  register: (email, password) => api.post('/api/auth/register', { email, password }),
+  register: (data) => api.post('/api/auth/register', data),
   getProfile: async () => getFromFirstAvailableRoute(AUTH_PROFILE_ROUTES),
   getReports: () => api.get('/api/reportes'),
   getReport: id => api.get(`/api/reportes/${id}`),
