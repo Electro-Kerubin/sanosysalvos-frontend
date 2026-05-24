@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,54 +14,31 @@ import LogoutScreen from '../screens/LogoutScreen';
 
 const Stack = createStackNavigator();
 
-const linking = {
-  prefixes: [],
-  config: {
-    screens: {
-      Index: '',
-      Login: 'login',
-      Register: 'registro',
-      Dashboard: 'dashboard',
-      PublishReport: 'publicar',
-      ReportDetail: 'reporte/:reportId',
-      Notifications: 'notificaciones',
-      Profile: 'perfil',
-      Logout: 'logout',
-    },
-  },
-};
-
-async function getStoredToken() {
+// Lee el token síncronamente en web (localStorage es síncrono).
+// Evita el parpadeo de pantalla en blanco que ocurre con AsyncStorage async.
+function getInitialRouteSynchronous() {
   try {
-    const token = await AsyncStorage.getItem('token');
-    if (token) return token;
-  } catch (_) { /* ignorar */ }
-  // Fallback directo a localStorage en web
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return window.localStorage.getItem('token');
-  }
-  return null;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem('token') ? 'Dashboard' : 'Index';
+    }
+  } catch (_) { /* Safari privado puede lanzar error */ }
+  return null; // null = necesita check asíncrono (nativo)
 }
 
 export default function AppNavigation() {
-  const [initialRoute, setInitialRoute] = useState(null);
+  const [initialRoute, setInitialRoute] = useState(() => getInitialRouteSynchronous());
 
   useEffect(() => {
-    getStoredToken()
+    if (initialRoute !== null) return; // ya resuelto síncronamente en web
+    AsyncStorage.getItem('token')
       .then(token => setInitialRoute(token ? 'Dashboard' : 'Index'))
       .catch(() => setInitialRoute('Index'));
   }, []);
 
-  if (!initialRoute) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#4CAF50" />
-      </View>
-    );
-  }
+  if (!initialRoute) return null; // nativo: espera un tick, no hay flash en web
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer>
       <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Index" component={IndexScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
@@ -77,13 +53,3 @@ export default function AppNavigation() {
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    minHeight: '100vh',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-});
