@@ -12,10 +12,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generar nginx.conf con IP del backend
+        - name: Generar nginx.conf con IP del backend
         run: |
-          cat > frontend/nginx.conf <<EOF
+          cat > nginx.conf <<EOF    # ← sin frontend/
           server {
+
+
               listen 80;
 
               location / {
@@ -45,11 +47,9 @@ jobs:
       - name: Build and Push imagen
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: .               # ← punto en vez de ./frontend
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/sanosysalvos-frontend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   deploy:
     name: Deploy EC2 Frontend
