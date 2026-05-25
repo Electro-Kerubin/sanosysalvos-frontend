@@ -11,7 +11,7 @@ import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
 // Convierte el DTO del backend al formato que usan los componentes de UI
-function mapReporteDTO(dto) {
+function mapReporteDTO(dto, userEmail) {
   const tipoDesc = (dto.descripcionTipoReporte || '').toLowerCase();
   const status = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
   return {
@@ -25,7 +25,9 @@ function mapReporteDTO(dto) {
     lng: dto.longitud ?? dto.lng ?? null,
     media: [],
     contact: dto.nombresContacto || '',
-    isMine: false,
+    isMine: userEmail && dto.correoContacto
+      ? dto.correoContacto.toLowerCase() === userEmail.toLowerCase()
+      : false,
     createdAt: dto.fechaReporte || dto.fechaExtravio || new Date().toISOString(),
   };
 }
@@ -76,8 +78,9 @@ export default function DashboardScreen({ navigation }) {
     Promise.all([
       api.getReports(),
       api.getCoordenadas().catch(() => ({ data: [] })),
+      api.getProfile().catch(() => ({ data: null })),
     ])
-      .then(([resReportes, resCoordenadas]) => {
+      .then(([resReportes, resCoordenadas, resPerfil]) => {
         if (!mounted) return;
         const data = resReportes?.data;
         const items = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : null);
@@ -86,8 +89,10 @@ export default function DashboardScreen({ navigation }) {
         const coordMap = {};
         (resCoordenadas?.data || []).forEach(c => { coordMap[c.idReporte] = c; });
 
+        const userEmail = resPerfil?.data?.email || resPerfil?.data?.correo || null;
+
         setReports(items.map(dto => {
-          const mapped = mapReporteDTO(dto);
+          const mapped = mapReporteDTO(dto, userEmail);
           const coord = coordMap[mapped.id];
           if (coord) { mapped.lat = coord.ubicacionLat; mapped.lng = coord.ubicacionLon; }
           return mapped;
