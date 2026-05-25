@@ -21,9 +21,16 @@ export default function LoginScreen({ navigation }) {
         ['nombreCompleto', nombreCompleto ?? ''],
         ['rol', rol ?? ''],
       ]);
+      const profile = {
+        name: nombreCompleto ?? '',
+        email,
+        phone: '',
+      };
+      await AsyncStorage.setItem('profile', JSON.stringify(profile));
       // Guardar también en localStorage como respaldo para web
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem('token', token);
+        window.localStorage.setItem('profile', JSON.stringify(profile));
       }
       navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
       

@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
@@ -20,11 +21,19 @@ function loadSavedProfile() {
   } catch (_) { return {}; }
 }
 
-function saveProfile(data) {
+async function loadProfileAsync() {
   try {
-    if (typeof window !== 'undefined') {
-      window.localStorage?.setItem('profile', JSON.stringify(data));
-    }
+    const raw = await AsyncStorage.getItem('profile');
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function saveProfile(data) {
+  try {
+    await AsyncStorage.setItem('profile', JSON.stringify(data));
+    if (typeof window !== 'undefined') window.localStorage?.setItem('profile', JSON.stringify(data));
   } catch (_) {}
 }
 
@@ -52,9 +61,23 @@ export default function ProfileScreen({ navigation }) {
   const [phone, setPhone] = useState(initialPhone);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
+  useEffect(() => {
+    let mounted = true;
+    loadProfileAsync().then((asyncProfile) => {
+      if (!mounted) return;
+      const profile = { ...savedProfile, ...asyncProfile };
+      if (profile.email) {
+        // Mantener coherencia si el login ya dejó correo/nombre en AsyncStorage.
+      }
+      setName(profile.name || tokenPayload.nombre || tokenPayload.name || '');
+      setPhone(profile.phone || '');
+    });
+    return () => { mounted = false; };
+  }, [savedProfile, tokenPayload.nombre, tokenPayload.name]);
+
+  const handleSave = async () => {
     const updated = { name: name.trim(), phone: phone.trim(), email };
-    saveProfile(updated);
+    await saveProfile(updated);
     setSaved(true);
     setEditMode(false);
     setTimeout(() => setSaved(false), 2500);
