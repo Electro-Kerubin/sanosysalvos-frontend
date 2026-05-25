@@ -11,6 +11,7 @@ import ReportDetailScreen from '../screens/ReportDetailScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import LogoutScreen from '../screens/LogoutScreen';
+import MatchingScreen from '../screens/MatchingScreen';
 
 const Stack = createStackNavigator();
 
@@ -49,6 +50,7 @@ export default function AppNavigation() {
         <Stack.Screen name="Notifications" component={NotificationScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Logout" component={LogoutScreen} />
+        <Stack.Screen name="Matching" component={MatchingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

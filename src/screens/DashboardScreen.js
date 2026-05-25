@@ -301,7 +301,8 @@ export default function DashboardScreen({ navigation }) {
                       <PrimaryButton title="Editar" variant="ghost" onPress={() => navigation.navigate('PublishReport', { reportId: report.id })} style={styles.actionButton} />
                       <PrimaryButton title="Borrar" variant="ghost" onPress={() => {}} style={styles.actionButton} />
                     </View>
-                    <PrimaryButton title="Cambiar contacto" onPress={() => navigation.navigate('Profile')} style={styles.contactButton} />
+                    <PrimaryButton title="Analizar coincidencia" onPress={() => navigation.navigate('Matching', { reportId: report.id })} style={styles.contactButton} />
+                    <PrimaryButton title="Cambiar contacto" variant="ghost" onPress={() => navigation.navigate('Profile')} style={styles.contactButton} />
                   </View>
                 )}
               </View>
