@@ -65,6 +65,7 @@ export default function PublishReportScreen({ navigation, route }) {
   const [coordLat, setCoordLat] = useState(null);
   const [coordLng, setCoordLng] = useState(null);
   const [idComuna, setIdComuna] = useState(null);
+  const [showAllComunas, setShowAllComunas] = useState(false);
   const [direccion, setDireccion] = useState('');
 
   const normalizeStr = s =>
@@ -74,6 +75,7 @@ export default function PublishReportScreen({ navigation, route }) {
     setCoordLat(lat);
     setCoordLng(lng);
     setIdComuna(null);
+    setShowAllComunas(false);
 
     try {
       const res = await fetch(
@@ -350,8 +352,20 @@ export default function PublishReportScreen({ navigation, route }) {
 
         {coordLat != null && (
           <>
-            <Field label={`Comuna *${idComuna ? ` — ${comunas.find(c => c.id === idComuna)?.descripcion ?? ''}` : ' — detectando...'}`}>
-              <SelectPill options={comunas} value={idComuna} onChange={setIdComuna} />
+            <Field label="Comuna *">
+              <SelectPill
+                options={showAllComunas ? comunas : (idComuna ? comunas.filter(c => c.id === idComuna) : comunas)}
+                value={idComuna}
+                onChange={id => { setIdComuna(id); setShowAllComunas(false); }}
+              />
+              {idComuna && !showAllComunas && (
+                <Pressable onPress={() => setShowAllComunas(true)}>
+                  <Text style={styles.changeLink}>¿No es la correcta? Cambiar comuna</Text>
+                </Pressable>
+              )}
+              {!idComuna && !showAllComunas && (
+                <Text style={styles.detectingText}>Detectando comuna...</Text>
+              )}
             </Field>
 
             <Field label="Dirección (opcional)">
@@ -454,5 +468,7 @@ const styles = StyleSheet.create({
   errorText: { color: '#b91c1c', fontSize: 13, fontWeight: '600' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingTop: 60 },
   loadingText: { color: COLORS.muted, fontSize: 14 },
+  changeLink: { fontSize: 12, color: COLORS.secondary, marginTop: 4, textDecorationLine: 'underline' },
+  detectingText: { fontSize: 12, color: COLORS.muted, marginTop: 4 },
   submitButton: { marginTop: 20 },
 });
