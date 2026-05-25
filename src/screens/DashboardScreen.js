@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions, Pressable, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenShell from '../components/ScreenShell';
 import LogoBanner from '../components/LogoBanner';
 import ResponsiveNav from '../components/ResponsiveNav';
@@ -11,6 +12,14 @@ import ConfirmModal from '../components/ConfirmModal';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
+const CUSTOM_SPECIES_STORAGE_KEY = 'customSpeciesByReportId';
+const CUSTOM_BREEDS_STORAGE_KEY = 'customBreedsByReportId';
+const CUSTOM_MARKS_STORAGE_KEY = 'customMarksByReportId';
+const REPORT_PHOTOS_STORAGE_KEY = 'reportPhotosByReportId';
+const REPORT_ADDRESS_STORAGE_KEY = 'reportAddressByReportId';
+const REPORT_CONTACT_METHOD_STORAGE_KEY = 'reportContactMethodByReportId';
+const NOTIFICATIONS_SEEN_SNAPSHOT_KEY = 'matchingNotificationsSeenSnapshot';
+
 function getMyReportIds() {
   try {
     const raw = typeof window !== 'undefined' ? window.localStorage?.getItem('myReportIds') : null;
@@ -18,21 +27,74 @@ function getMyReportIds() {
   } catch (_) { return []; }
 }
 
+async function getCustomSpeciesMap() {
+  try {
+    const raw = await AsyncStorage.getItem(CUSTOM_SPECIES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function buildNotificationSnapshot(matchingCoincidencias) {
+  const entries = Object.entries(matchingCoincidencias)
+    .map(([reportId, list]) => [String(reportId), Array.isArray(list) ? list : []])
+    .filter(([, list]) => list.length > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  return JSON.stringify(entries);
+}
+
+async function getStoredMap(storageKey) {
+  try {
+    const raw = await AsyncStorage.getItem(storageKey);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function removeStoredMapEntry(storageKey, reportId) {
+  try {
+    const raw = await AsyncStorage.getItem(storageKey);
+    const map = raw ? JSON.parse(raw) : {};
+    delete map[String(reportId)];
+    await AsyncStorage.setItem(storageKey, JSON.stringify(map));
+  } catch (_) {}
+}
+
+function removeLocalReportId(reportId) {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage?.getItem('myReportIds') : null;
+    const ids = raw ? JSON.parse(raw) : [];
+    const next = ids.filter(id => String(id) !== String(reportId));
+    window.localStorage?.setItem('myReportIds', JSON.stringify(next));
+  } catch (_) {}
+}
+
 // Convierte el DTO del backend al formato que usan los componentes de UI
-function mapReporteDTO(dto, myIds) {
+function mapReporteDTO(dto, myIds, customSpeciesMap = {}, customBreedMap = {}, customMarkMap = {}, photoMap = {}, addressMap = {}, contactMethodMap = {}) {
   const tipoDesc = (dto.descripcionTipoReporte || '').toLowerCase();
   const status = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
+  const customSpecies = customSpeciesMap[String(dto.idReporteMascota)] || '';
+  const customBreed = customBreedMap[String(dto.idReporteMascota)] || '';
+  const customMark = customMarkMap[String(dto.idReporteMascota)] || '';
+  const address = dto.direccion || addressMap[String(dto.idReporteMascota)] || '';
+  const contactMethod = dto.descripcionCanalPreferencia || dto.nombreCanalPreferencia || dto.canalPreferencia || contactMethodMap[String(dto.idReporteMascota)] || '';
 
   return {
     id: dto.idReporteMascota,
     name: dto.nombreMascota || 'Sin nombre',
-    species: dto.descripcionEspecie || '',
-    breed: dto.descripcionRaza || '',
-    description: [dto.descripcionMarcaDistintiva, dto.descripcionTipoReporte].filter(Boolean).join(' · ') || '',
+    species: dto.descripcionEspecie || customSpecies || '',
+    breed: dto.descripcionRaza || customBreed || '',
+    mark: dto.descripcionMarcaDistintiva || customMark || '',
+    address,
+    contactMethod,
+    description: [dto.descripcionTipoReporte, contactMethod].filter(Boolean).join(' · ') || '',
     status,
     lat: dto.latitud ?? dto.lat ?? null,
     lng: dto.longitud ?? dto.lng ?? null,
-    media: [],
+    media: photoMap[String(dto.idReporteMascota)] || [],
     contact: dto.nombresContacto || '',
     isMine: myIds.includes(dto.idReporteMascota),
     createdAt: dto.fechaReporte || dto.fechaExtravio || new Date().toISOString(),
@@ -67,6 +129,10 @@ export default function DashboardScreen({ navigation }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [expandedReportId, setExpandedReportId] = useState(null);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState(null);
+  const [deletingReportId, setDeletingReportId] = useState(null);
+  const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
 
   const handleLogout = () => {
     setLogoutModalVisible(true);
@@ -76,6 +142,42 @@ export default function DashboardScreen({ navigation }) {
     setLogoutModalVisible(false);
     navigation.navigate('Logout');
   };
+
+  const requestDeleteReport = useCallback((report) => {
+    setReportToDelete(report);
+    setDeleteModalVisible(true);
+  }, []);
+
+  const cancelDeleteReport = useCallback(() => {
+    setDeleteModalVisible(false);
+    setReportToDelete(null);
+  }, []);
+
+  const confirmDeleteReport = useCallback(async () => {
+    if (!reportToDelete?.id) return cancelDeleteReport();
+    const reportId = reportToDelete.id;
+    setDeletingReportId(reportId);
+    try {
+      await api.deleteReport(reportId);
+      removeLocalReportId(reportId);
+      await Promise.all([
+        removeStoredMapEntry(CUSTOM_SPECIES_STORAGE_KEY, reportId),
+        removeStoredMapEntry(CUSTOM_BREEDS_STORAGE_KEY, reportId),
+        removeStoredMapEntry(CUSTOM_MARKS_STORAGE_KEY, reportId),
+        removeStoredMapEntry(REPORT_PHOTOS_STORAGE_KEY, reportId),
+        removeStoredMapEntry(REPORT_ADDRESS_STORAGE_KEY, reportId),
+        removeStoredMapEntry(REPORT_CONTACT_METHOD_STORAGE_KEY, reportId),
+      ]);
+      setReports(prev => prev.filter(item => String(item.id) !== String(reportId)));
+      setExpandedReportId(current => String(current) === String(reportId) ? null : current);
+      setDeleteModalVisible(false);
+      setReportToDelete(null);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'No se pudo borrar el reporte.');
+    } finally {
+      setDeletingReportId(null);
+    }
+  }, [cancelDeleteReport, reportToDelete]);
 
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -97,8 +199,14 @@ export default function DashboardScreen({ navigation }) {
       Promise.all([
         api.getReports(),
         api.getCoordenadas().catch(() => ({ data: [] })),
+        getCustomSpeciesMap(),
+        getStoredMap(CUSTOM_BREEDS_STORAGE_KEY),
+        getStoredMap(CUSTOM_MARKS_STORAGE_KEY),
+        getStoredMap(REPORT_PHOTOS_STORAGE_KEY),
+        getStoredMap(REPORT_ADDRESS_STORAGE_KEY),
+        getStoredMap(REPORT_CONTACT_METHOD_STORAGE_KEY),
       ])
-        .then(([resReportes, resCoordenadas]) => {
+        .then(([resReportes, resCoordenadas, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap]) => {
           if (!mounted) return;
           const data = resReportes?.data;
           const items = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : null);
@@ -109,9 +217,13 @@ export default function DashboardScreen({ navigation }) {
 
           const myIds = getMyReportIds();
           setReports(items.map(dto => {
-            const mapped = mapReporteDTO(dto, myIds);
+            const mapped = mapReporteDTO(dto, myIds, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap);
             const coord = coordMap[mapped.id];
-            if (coord) { mapped.lat = coord.ubicacionLat; mapped.lng = coord.ubicacionLon; }
+            if (coord) {
+              mapped.lat = coord.ubicacionLat;
+              mapped.lng = coord.ubicacionLon;
+              mapped.address = mapped.address || coord.direccion || '';
+            }
             return mapped;
           }));
         })
@@ -175,11 +287,30 @@ export default function DashboardScreen({ navigation }) {
     return () => clearInterval(matchingIntervalRef.current);
   }, [runMatchingCheck]);
 
+  useEffect(() => {
+    let mounted = true;
+    const syncBadge = async () => {
+      const currentSnapshot = buildNotificationSnapshot(matchingCoincidencias);
+      const activeCount = Object.values(matchingCoincidencias).reduce((total, list) => total + (Array.isArray(list) ? list.length : 0), 0);
+      if (!activeCount) {
+        if (mounted) setNotificationBadgeCount(0);
+        return;
+      }
+
+      const seenSnapshot = await AsyncStorage.getItem(NOTIFICATIONS_SEEN_SNAPSHOT_KEY);
+      if (!mounted) return;
+      setNotificationBadgeCount(seenSnapshot === currentSnapshot ? 0 : activeCount);
+    };
+
+    syncBadge();
+    return () => { mounted = false; };
+  }, [matchingCoincidencias]);
+
   return (
     <ScreenShell padded={false} scroll={false}>
       <View style={styles.header}>
         <LogoBanner compact />
-        <ResponsiveNav navigation={navigation} openMenu={() => setMenuOpen((value) => !value)} onLogout={handleLogout} />
+        <ResponsiveNav navigation={navigation} openMenu={() => setMenuOpen((value) => !value)} onLogout={handleLogout} notificationBadgeCount={notificationBadgeCount} />
       </View>
 
       {menuOpen ? (
@@ -299,7 +430,7 @@ export default function DashboardScreen({ navigation }) {
                     </View>
                     <View style={styles.actionButtons}>
                       <PrimaryButton title="Editar" variant="ghost" onPress={() => navigation.navigate('PublishReport', { reportId: report.id })} style={styles.actionButton} />
-                      <PrimaryButton title="Borrar" variant="ghost" onPress={() => {}} style={styles.actionButton} />
+                      <PrimaryButton title={deletingReportId === report.id ? 'Borrando...' : 'Borrar'} variant="ghost" onPress={() => requestDeleteReport(report)} style={styles.actionButton} />
                     </View>
                     <PrimaryButton title="Analizar coincidencia" onPress={() => navigation.navigate('Matching', { reportId: report.id })} style={styles.contactButton} />
                     <PrimaryButton title="Cambiar contacto" variant="ghost" onPress={() => navigation.navigate('Profile')} style={styles.contactButton} />
@@ -317,6 +448,13 @@ export default function DashboardScreen({ navigation }) {
         message="¿Estás seguro de que deseas cerrar sesión?"
         onConfirm={confirmLogout}
         onCancel={() => setLogoutModalVisible(false)}
+      />
+      <ConfirmModal
+        visible={deleteModalVisible}
+        title="Borrar reporte"
+        message={`¿Estás seguro de que deseas borrar ${reportToDelete?.name || 'este reporte'}? Esta acción no se puede deshacer.`}
+        onConfirm={confirmDeleteReport}
+        onCancel={cancelDeleteReport}
       />
     </ScreenShell>
   );

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Image, Pressable } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import { COLORS } from '../styles/theme';
@@ -23,6 +24,11 @@ export default function RegisterScreen({ navigation }) {
         contrasena: password,
         idRol: 1,
       });
+      const profile = { name: nombreCompleto.trim(), email: email.trim(), phone: '' };
+      await AsyncStorage.setItem('profile', JSON.stringify(profile));
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('profile', JSON.stringify(profile));
+      }
       alert('Cuenta creada. Inicia sesión.');
       navigation.navigate('Login');
     } catch (error) {

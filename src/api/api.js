@@ -52,11 +52,13 @@ export default {
   getReport: id => api.get(`/api/reportes/${id}`),
   createReport: data => api.post('/api/reportes', data),
   updateReport: (id, data) => api.put(`/api/reportes/${id}`, data),
+  deleteReport: id => api.delete(`/api/reportes/${id}`),
   // Mascotas
   createMascota: data => api.post('/api/mascotas', data),
   updateMascota: (id, data) => api.put(`/api/mascotas/${id}`, data),
   // Contactos
   createContacto: data => api.post('/api/contactos', data),
+  updateContacto: (id, data) => api.put(`/api/contactos/${id}`, data),
   // Catálogos
   getTiposReporte: () => api.get('/api/catalogos/tipos-reporte'),
   getEstatus: () => api.get('/api/catalogos/estatus'),
@@ -69,6 +71,7 @@ export default {
   getComunas: () => api.get('/api/comunas'),
   getCoordenadas: () => api.get('/api/coordenadas'),
   createCoordenada: data => api.post('/api/coordenadas', data),
+  updateCoordenada: (id, data) => api.put(`/api/coordenadas/${id}`, data),
   // Otros
   getGeo: params => api.get('/api/geo', { params }),
   getMatches: reportId => api.get('/api/matching', { params: { reportId } }),

@@ -1,19 +1,53 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, useWindowDimensions, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, useWindowDimensions, ScrollView, ActivityIndicator, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
-function mapDTO(dto) {
+const CUSTOM_SPECIES_STORAGE_KEY = 'customSpeciesByReportId';
+const CUSTOM_BREEDS_STORAGE_KEY = 'customBreedsByReportId';
+const CUSTOM_MARKS_STORAGE_KEY = 'customMarksByReportId';
+const REPORT_PHOTOS_STORAGE_KEY = 'reportPhotosByReportId';
+const REPORT_ADDRESS_STORAGE_KEY = 'reportAddressByReportId';
+const REPORT_CONTACT_METHOD_STORAGE_KEY = 'reportContactMethodByReportId';
+
+async function getCustomSpeciesMap() {
+  try {
+    const raw = await AsyncStorage.getItem(CUSTOM_SPECIES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function getStoredMap(storageKey) {
+  try {
+    const raw = await AsyncStorage.getItem(storageKey);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function mapDTO(dto, customSpeciesMap = {}, customBreedMap = {}, customMarkMap = {}, photoMap = {}, addressMap = {}, contactMethodMap = {}) {
   const tipoDesc = (dto.descripcionTipoReporte || '').toLowerCase();
   const status = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
+  const customSpecies = customSpeciesMap[String(dto.idReporteMascota)] || '';
+  const customBreed = customBreedMap[String(dto.idReporteMascota)] || '';
+  const customMark = customMarkMap[String(dto.idReporteMascota)] || '';
+  const address = dto.direccion || addressMap[String(dto.idReporteMascota)] || '';
+  const contactMethod = dto.descripcionCanalPreferencia || dto.nombreCanalPreferencia || dto.canalPreferencia || contactMethodMap[String(dto.idReporteMascota)] || '';
   return {
     id: dto.idReporteMascota,
     name: dto.nombreMascota || 'Sin nombre',
-    species: dto.descripcionEspecie || '',
-    breed: dto.descripcionRaza || '',
+    species: dto.descripcionEspecie || customSpecies || '',
+    breed: dto.descripcionRaza || customBreed || '',
+    mark: dto.descripcionMarcaDistintiva || customMark || '',
+    address,
+    contactMethod,
     status,
     description: dto.detallesExtra || dto.descripcionMarcaDistintiva || '',
     contact: dto.nombresContacto || '',
@@ -23,6 +57,7 @@ function mapDTO(dto) {
     fechaAvistamiento: dto.fechaAvistamiento || null,
     color: dto.colorPrimario || '',
     tamano: dto.tamano || '',
+    media: photoMap[String(dto.idReporteMascota)] || [],
     isMine: false,
   };
 }
@@ -39,8 +74,16 @@ export default function ReportDetailScreen({ navigation, route }) {
   useEffect(() => {
     if (!reportId) { setError('ID de reporte no especificado.'); setLoading(false); return; }
     setLoading(true);
-    api.getReport(reportId)
-      .then(res => setReport(mapDTO(res.data)))
+    Promise.all([
+      api.getReport(reportId),
+      getCustomSpeciesMap(),
+      getStoredMap(CUSTOM_BREEDS_STORAGE_KEY),
+      getStoredMap(CUSTOM_MARKS_STORAGE_KEY),
+      getStoredMap(REPORT_PHOTOS_STORAGE_KEY),
+      getStoredMap(REPORT_ADDRESS_STORAGE_KEY),
+      getStoredMap(REPORT_CONTACT_METHOD_STORAGE_KEY),
+    ])
+      .then(([res, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap]) => setReport(mapDTO(res.data, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap)))
       .catch(err => setError(err?.response?.data?.message || err?.message || 'Error al cargar el reporte.'))
       .finally(() => setLoading(false));
   }, [reportId]);
@@ -81,11 +124,17 @@ export default function ReportDetailScreen({ navigation, route }) {
             {/* Panel izquierdo: imagen placeholder */}
             <View style={styles.mediaPane}>
               <View style={[styles.mediaViewer, { backgroundColor: report.status === 'Encontrado' ? '#ecfdf3' : '#fef2f2' }]}>
-                <View style={styles.mediaPlaceholder}>
-                  <Ionicons name="paw" size={64} color={report.status === 'Encontrado' ? COLORS.success : COLORS.accent} />
-                  <Text style={styles.mediaPlaceholderText}>{report.name}</Text>
-                  <Text style={styles.mediaPlaceholderSub}>Reporte de mascota</Text>
-                </View>
+                {report.media?.length ? (
+                  <View style={styles.mediaImageWrap}>
+                    <Image source={typeof report.media[0] === 'string' ? { uri: report.media[0] } : report.media[0]} style={styles.mediaImage} resizeMode="cover" />
+                  </View>
+                ) : (
+                  <View style={styles.mediaPlaceholder}>
+                    <Image source={require('../../assets/images/index.png')} style={styles.mediaPlaceholderImage} resizeMode="contain" />
+                    <Text style={styles.mediaPlaceholderText}>{report.name}</Text>
+                    <Text style={styles.mediaPlaceholderSub}>Reporte de mascota</Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -93,11 +142,25 @@ export default function ReportDetailScreen({ navigation, route }) {
             <View style={styles.infoPane}>
               <Text style={styles.name}>{report.name}</Text>
               {(report.species || report.breed) && (
-                <Text style={styles.meta}>{[report.species, report.breed].filter(Boolean).join(' · ')}</Text>
+                <Text style={styles.meta}>{[report.species && `Especie: ${report.species}`, report.breed && `Raza: ${report.breed}`].filter(Boolean).join(' · ')}</Text>
               )}
               <View style={[styles.statusPill, report.status === 'Encontrado' ? styles.found : styles.searching]}>
                 <Text style={styles.statusText}>{report.status}</Text>
               </View>
+
+              {report.mark ? (
+                <>
+                  <Text style={styles.sectionLabel}>Marca distintiva</Text>
+                  <Text style={styles.paragraph}>{report.mark}</Text>
+                </>
+              ) : null}
+
+              {report.address ? (
+                <>
+                  <Text style={styles.sectionLabel}>Dirección</Text>
+                  <Text style={styles.paragraph}>{report.address}</Text>
+                </>
+              ) : null}
 
               {report.description ? (
                 <>
@@ -127,6 +190,7 @@ export default function ReportDetailScreen({ navigation, route }) {
               <Text style={styles.sectionLabel}>Contacto</Text>
               <View style={styles.contactCard}>
                 <Text style={styles.contactName}>{report.contact || 'No especificado'}</Text>
+                {report.contactMethod ? <Text style={styles.contactLine}>Método preferido: {report.contactMethod}</Text> : null}
                 {report.contactPhone ? <Text style={styles.contactLine}>{report.contactPhone}</Text> : null}
                 {report.contactEmail ? <Text style={styles.contactLine}>{report.contactEmail}</Text> : null}
               </View>
@@ -185,6 +249,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 1,
   },
+  mediaImageWrap: { flex: 1, minHeight: 300 },
+  mediaImage: { width: '100%', height: '100%', minHeight: 300 },
   mediaPlaceholder: {
     flex: 1,
     minHeight: 300,
@@ -193,6 +259,7 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 24,
   },
+  mediaPlaceholderImage: { width: 160, height: 160, marginBottom: 4, opacity: 0.95 },
   mediaPlaceholderText: { fontSize: 26, fontWeight: '900', color: COLORS.text },
   mediaPlaceholderSub: { fontSize: 13, color: COLORS.muted },
   infoPane: {

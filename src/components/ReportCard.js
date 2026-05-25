@@ -3,9 +3,12 @@ import { Pressable, View, Text, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../styles/theme';
 
+const DEFAULT_IMAGE = require('../../assets/images/index.png');
+
 export default function ReportCard({ report, onPress, compact = false }) {
   const first = report.media && report.media.length ? report.media[0] : null;
-  const imageSource = typeof first === 'string' ? { uri: first } : first || require('../../assets/images/index.png');
+  const imageSource = typeof first === 'string' ? { uri: first } : first || DEFAULT_IMAGE;
+  const metaSpecies = [report.species && `Especie: ${report.species}`, report.breed && `Raza: ${report.breed}`].filter(Boolean).join(' · ');
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed, compact && styles.compact]}>
@@ -23,8 +26,9 @@ export default function ReportCard({ report, onPress, compact = false }) {
             <Text style={styles.statusText}>{report.status}</Text>
           </View>
         </View>
-        <Text style={styles.meta}>{report.species} · {report.breed}</Text>
-        <Text style={styles.desc}>{(report.description || '').slice(0, 78)}{(report.description || '').length > 78 ? '...' : ''}</Text>
+        {metaSpecies ? <Text style={styles.meta}>{metaSpecies}</Text> : null}
+        {report.mark ? <Text style={styles.metaStrong}>Marca: {report.mark}</Text> : null}
+        {report.address ? <Text style={styles.address}>{report.address}</Text> : null}
       </View>
     </Pressable>
   );
@@ -68,7 +72,8 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   name: { fontSize: 17, fontWeight: '900', color: COLORS.text, flex: 1, letterSpacing: -0.2 },
   meta: { fontSize: 12, color: COLORS.muted, marginTop: 6, lineHeight: 16 },
-  desc: { fontSize: 13, color: COLORS.text, marginTop: 8, lineHeight: 19 },
+  metaStrong: { fontSize: 12, color: COLORS.text, marginTop: 6, lineHeight: 16, fontWeight: '700' },
+  address: { fontSize: 12, color: COLORS.text, marginTop: 6, lineHeight: 16 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   found: { backgroundColor: '#dcfce7' },
   searching: { backgroundColor: '#fee2e2' },
