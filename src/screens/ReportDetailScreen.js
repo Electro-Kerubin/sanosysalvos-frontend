@@ -34,7 +34,7 @@ async function getStoredMap(storageKey) {
 
 function mapDTO(dto, customSpeciesMap = {}, customBreedMap = {}, customMarkMap = {}, photoMap = {}, addressMap = {}, contactMethodMap = {}) {
   const tipoDesc = (dto.descripcionTipoReporte || '').toLowerCase();
-  const status = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
+  const status = tipoDesc.includes('encontrad') ? 'Encontrado' : tipoDesc.includes('avistamiento') ? 'Avistamiento' : 'Búsqueda';
   const customSpecies = customSpeciesMap[String(dto.idReporteMascota)] || '';
   const customBreed = customBreedMap[String(dto.idReporteMascota)] || '';
   const customMark = customMarkMap[String(dto.idReporteMascota)] || '';
@@ -152,7 +152,7 @@ export default function ReportDetailScreen({ navigation, route }) {
 
             {/* Panel izquierdo: imagen placeholder */}
             <View style={styles.mediaPane}>
-              <View style={[styles.mediaViewer, { backgroundColor: report.status === 'Encontrado' ? '#ecfdf3' : '#fef2f2' }]}>
+              <View style={[styles.mediaViewer, { backgroundColor: report.status === 'Encontrado' ? '#ecfdf3' : report.status === 'Avistamiento' ? '#fff7ed' : '#fef2f2' }]}>
                 {report.media?.length ? (
                   <View style={styles.mediaImageWrap}>
                     <Image source={typeof report.media[0] === 'string' ? { uri: report.media[0] } : report.media[0]} style={styles.mediaImage} resizeMode="cover" />
@@ -173,7 +173,7 @@ export default function ReportDetailScreen({ navigation, route }) {
               {(report.species || report.breed) && (
                 <Text style={styles.meta}>{[report.species && `Especie: ${report.species}`, report.breed && `Raza: ${report.breed}`].filter(Boolean).join(' · ')}</Text>
               )}
-              <View style={[styles.statusPill, report.status === 'Encontrado' ? styles.found : styles.searching]}>
+              <View style={[styles.statusPill, report.status === 'Encontrado' ? styles.found : report.status === 'Avistamiento' ? styles.sighting : styles.searching]}>
                 <Text style={styles.statusText}>{report.status}</Text>
               </View>
 
@@ -338,6 +338,7 @@ const styles = StyleSheet.create({
   meta: { color: COLORS.muted, fontSize: 14 },
   statusPill: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
   found: { backgroundColor: '#dcfce7' },
+  sighting: { backgroundColor: '#ffedd5' },
   searching: { backgroundColor: '#fee2e2' },
   statusText: { fontSize: 11, fontWeight: '800', color: COLORS.text },
   sectionLabel: { marginTop: 10, color: COLORS.text, fontSize: 14, fontWeight: '800' },

@@ -430,7 +430,7 @@ export default function PublishReportScreen({ navigation, route }) {
       getSuggestionList(BREED_SUGGESTIONS_STORAGE_KEY),
     ])
       .then(([tipos, estatus, esp, rz, sx, marc, can, com, speciesSugs, breedSugs]) => {
-        setTiposReporte(tipos.data);
+        setTiposReporte((tipos.data || []).filter(t => !(t.descripcionTipoReporte || '').toLowerCase().includes('encontrad')));
         setEstatusList(estatus.data);
         setEspecies(esp.data);
         setRazas(rz.data);

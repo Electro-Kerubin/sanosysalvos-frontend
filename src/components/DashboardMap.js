@@ -38,7 +38,7 @@ function buildMapHtml(reports) {
     var markers = ${JSON.stringify(markers)};
 
     markers.forEach(function(r) {
-      var color = r.status === 'Encontrado' ? '#22c55e' : '#ef4444';
+      var color = r.status === 'Encontrado' ? '#22c55e' : r.status === 'Avistamiento' ? '#f97316' : '#ef4444';
       var icon = L.divIcon({
         className: '',
         html: '<div style="width:18px;height:18px;border-radius:50%;background:' + color + ';border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:pointer"></div>',

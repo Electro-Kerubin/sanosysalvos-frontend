@@ -75,7 +75,7 @@ function removeLocalReportId(reportId) {
 // Convierte el DTO del backend al formato que usan los componentes de UI
 function mapReporteDTO(dto, myIds, customSpeciesMap = {}, customBreedMap = {}, customMarkMap = {}, photoMap = {}, addressMap = {}, contactMethodMap = {}) {
   const tipoDesc = (dto.descripcionTipoReporte || '').toLowerCase();
-  const status = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
+  const status = tipoDesc.includes('encontrad') ? 'Encontrado' : tipoDesc.includes('avistamiento') ? 'Avistamiento' : 'Búsqueda';
   const customSpecies = customSpeciesMap[String(dto.idReporteMascota)] || '';
   const customBreed = customBreedMap[String(dto.idReporteMascota)] || '';
   const customMark = customMarkMap[String(dto.idReporteMascota)] || '';
@@ -133,6 +133,9 @@ export default function DashboardScreen({ navigation }) {
   const [reportToDelete, setReportToDelete] = useState(null);
   const [deletingReportId, setDeletingReportId] = useState(null);
   const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
+  const [foundModalVisible, setFoundModalVisible] = useState(false);
+  const [reportToMarkFound, setReportToMarkFound] = useState(null);
+  const [markingFoundId, setMarkingFoundId] = useState(null);
 
   const handleLogout = () => {
     setLogoutModalVisible(true);
@@ -178,6 +181,27 @@ export default function DashboardScreen({ navigation }) {
       setDeletingReportId(null);
     }
   }, [cancelDeleteReport, reportToDelete]);
+
+  const confirmMarkAsFound = useCallback(async () => {
+    if (!reportToMarkFound?.id) { setFoundModalVisible(false); setReportToMarkFound(null); return; }
+    const reportId = reportToMarkFound.id;
+    setMarkingFoundId(reportId);
+    try {
+      const tiposRes = await api.getTiposReporte();
+      const tipos = tiposRes?.data || [];
+      const foundTipo = tipos.find(t => (t.descripcionTipoReporte || '').toLowerCase().includes('encontrad'));
+      if (!foundTipo) throw new Error('No se encontró el tipo "Mascota encontrada" en el catálogo.');
+      await api.updateReport(reportId, { idTipoReporte: foundTipo.idTipoReporte });
+      setReports(prev => prev.map(r => String(r.id) === String(reportId) ? { ...r, status: 'Encontrado' } : r));
+      setFoundModalVisible(false);
+      setReportToMarkFound(null);
+      setExpandedReportId(null);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'No se pudo marcar el reporte como encontrado.');
+    } finally {
+      setMarkingFoundId(null);
+    }
+  }, [reportToMarkFound]);
 
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -344,7 +368,7 @@ export default function DashboardScreen({ navigation }) {
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>Mapa de reportes</Text>
-            <Text style={styles.sectionHint}>Verde = encontrado, rojo = búsqueda</Text>
+            <Text style={styles.sectionHint}>Verde = encontrado · Rojo = búsqueda · Naranja = avistamiento</Text>
           </View>
           <DashboardMap
             reports={reportsOrdered}
@@ -425,14 +449,20 @@ export default function DashboardScreen({ navigation }) {
                 </Pressable>
                 {isExpanded && (
                   <View style={styles.mineActions}>
-                    <View style={[styles.statePill, report.status === 'Encontrado' ? styles.stateFound : styles.stateSearching]}>
+                    <View style={[styles.statePill, report.status === 'Encontrado' ? styles.stateFound : report.status === 'Avistamiento' ? styles.stateSighting : styles.stateSearching]}>
                       <Text style={styles.stateText}>{report.status}</Text>
                     </View>
                     <View style={styles.actionButtons}>
                       <PrimaryButton title="Editar" variant="ghost" onPress={() => navigation.navigate('PublishReport', { reportId: report.id })} style={styles.actionButton} />
                       <PrimaryButton title={deletingReportId === report.id ? 'Borrando...' : 'Borrar'} variant="ghost" onPress={() => requestDeleteReport(report)} style={styles.actionButton} />
                     </View>
-                    <PrimaryButton title="Analizar coincidencia" onPress={() => navigation.navigate('Matching', { reportId: report.id })} style={styles.contactButton} />
+                    {report.status !== 'Encontrado' && (
+                      <PrimaryButton
+                        title={markingFoundId === report.id ? 'Guardando...' : 'Marcar como encontrada'}
+                        onPress={() => { setReportToMarkFound(report); setFoundModalVisible(true); }}
+                        style={styles.contactButton}
+                      />
+                    )}
                     <PrimaryButton title="Cambiar contacto" variant="ghost" onPress={() => navigation.navigate('Profile')} style={styles.contactButton} />
                   </View>
                 )}
@@ -455,6 +485,13 @@ export default function DashboardScreen({ navigation }) {
         message={`¿Estás seguro de que deseas borrar ${reportToDelete?.name || 'este reporte'}? Esta acción no se puede deshacer.`}
         onConfirm={confirmDeleteReport}
         onCancel={cancelDeleteReport}
+      />
+      <ConfirmModal
+        visible={foundModalVisible}
+        title="Marcar como encontrada"
+        message={`¿Confirmas que la mascota "${reportToMarkFound?.name || ''}" fue encontrada? Esto cambiará el tipo de reporte a Mascota encontrada.`}
+        onConfirm={confirmMarkAsFound}
+        onCancel={() => { setFoundModalVisible(false); setReportToMarkFound(null); }}
       />
     </ScreenShell>
   );
@@ -532,6 +569,7 @@ const styles = StyleSheet.create({
     borderRadius: 999
   },
   stateFound: { backgroundColor: '#dcfce7' },
+  stateSighting: { backgroundColor: '#ffedd5' },
   stateSearching: { backgroundColor: '#fee2e2' },
   stateText: { fontSize: 11, fontWeight: '800', color: COLORS.text },
   actionButtons: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
