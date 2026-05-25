@@ -5,6 +5,7 @@ import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import MapPicker from '../components/MapPicker';
 import DatePickerInput from '../components/DatePickerInput';
+import ImagePickerInput from '../components/ImagePickerInput';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
@@ -113,6 +114,9 @@ export default function PublishReportScreen({ navigation, route }) {
       // el usuario puede seleccionar manualmente
     }
   }, [comunas]);
+
+  // Fotos (mockup — pendiente de microservicio)
+  const [fotos, setFotos] = useState([]);
 
   // Mascota
   const [nombreMascota, setNombreMascota] = useState('');
@@ -341,6 +345,12 @@ export default function PublishReportScreen({ navigation, route }) {
             onChangeText={setDetallesExtra}
             multiline
           />
+        </Field>
+
+        {/* FOTOS */}
+        <SectionTitle title="Fotos de la mascota" />
+        <Field label="Selecciona imágenes (mockup)">
+          <ImagePickerInput images={fotos} onChange={setFotos} />
         </Field>
 
         {/* FECHAS */}

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions, Pressable, ActivityIndicator } from 'react-native';
 import ScreenShell from '../components/ScreenShell';
@@ -81,6 +81,13 @@ export default function DashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Motor de coincidencias
+  const [matchingReglas, setMatchingReglas] = useState([]);
+  const [matchingCoincidencias, setMatchingCoincidencias] = useState({});
+  const [matchingStatus, setMatchingStatus] = useState('idle');
+  const [lastChecked, setLastChecked] = useState(null);
+  const matchingIntervalRef = useRef(null);
+
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
@@ -127,6 +134,47 @@ export default function DashboardScreen({ navigation }) {
   const pagedMyReports = paginate(myReports, myPage);
   const myTotalPages = Math.max(1, Math.ceil(myReports.length / PAGE_SIZE));
 
+  // Polling del motor de coincidencias cada 30 segundos
+  const runMatchingCheck = useCallback(async (myIds) => {
+    setMatchingStatus('checking');
+    try {
+      const reglaRes = await api.getMatchingReglas();
+      setMatchingReglas(reglaRes?.data || []);
+
+      if (myIds && myIds.length > 0) {
+        const results = {};
+        await Promise.all(
+          myIds.map(async id => {
+            try {
+              const res = await api.getCoincidenciasPorReporte(id);
+              results[id] = res?.data || [];
+            } catch (_) {
+              results[id] = [];
+            }
+          })
+        );
+        setMatchingCoincidencias(results);
+      }
+
+      setMatchingStatus('online');
+      setLastChecked(new Date());
+    } catch (_) {
+      setMatchingStatus('offline');
+      setLastChecked(new Date());
+    }
+  }, []);
+
+  useEffect(() => {
+    const myIds = getMyReportIds();
+    runMatchingCheck(myIds);
+
+    matchingIntervalRef.current = setInterval(() => {
+      runMatchingCheck(getMyReportIds());
+    }, 30000);
+
+    return () => clearInterval(matchingIntervalRef.current);
+  }, [runMatchingCheck]);
+
   return (
     <ScreenShell padded={false} scroll={false}>
       <View style={styles.header}>
@@ -171,6 +219,53 @@ export default function DashboardScreen({ navigation }) {
             reports={reportsOrdered}
             onReportPress={id => navigation.navigate('ReportDetail', { reportId: id })}
           />
+        </View>
+
+        {/* MOTOR DE COINCIDENCIAS */}
+        <View style={styles.section}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Motor de Coincidencias</Text>
+            <View style={[styles.statusPill, matchingStatus === 'online' ? styles.statusOnline : matchingStatus === 'offline' ? styles.statusOffline : styles.statusChecking]}>
+              <Text style={styles.statusText}>
+                {matchingStatus === 'online' ? '● Activo' : matchingStatus === 'offline' ? '● Sin conexión' : '◌ Verificando...'}
+              </Text>
+            </View>
+          </View>
+          {lastChecked && (
+            <Text style={styles.sectionHint}>
+              Última verificación: {lastChecked.toLocaleTimeString()} · se actualiza cada 30s
+            </Text>
+          )}
+
+          {matchingReglas.length > 0 && (
+            <View style={styles.reglasList}>
+              <Text style={styles.subLabel}>Reglas activas ({matchingReglas.filter(r => r.activa).length})</Text>
+              {matchingReglas.filter(r => r.activa).map(r => (
+                <View key={r.id} style={styles.reglaRow}>
+                  <Text style={styles.reglaText}>{r.descripcion}</Text>
+                  <Text style={styles.regraPeso}>peso {(Number(r.importancia) * 100).toFixed(0)}%</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {Object.keys(matchingCoincidencias).length > 0 && (
+            <View style={styles.reglasList}>
+              <Text style={styles.subLabel}>Coincidencias por mis reportes</Text>
+              {Object.entries(matchingCoincidencias).map(([id, lista]) => (
+                <View key={id} style={styles.reglaRow}>
+                  <Text style={styles.reglaText}>Reporte #{id}</Text>
+                  <Text style={[styles.regraPeso, lista.length > 0 && styles.matchHit]}>
+                    {lista.length > 0 ? `${lista.length} coincidencia(s)` : 'Sin coincidencias'}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {matchingStatus === 'offline' && (
+            <Text style={styles.emptyText}>No se pudo conectar con el motor de coincidencias.</Text>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -312,5 +407,16 @@ const styles = StyleSheet.create({
   loadingText: { color: COLORS.muted, fontSize: 14 },
   errorBanner: { marginHorizontal: 20, marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#fca5a5' },
   errorText: { color: '#b91c1c', fontSize: 13, fontWeight: '600' },
-  emptyText: { color: COLORS.muted, fontSize: 13, marginTop: 6 }
+  emptyText: { color: COLORS.muted, fontSize: 13, marginTop: 6 },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  statusOnline: { backgroundColor: '#dcfce7' },
+  statusOffline: { backgroundColor: '#fee2e2' },
+  statusChecking: { backgroundColor: '#fef9c3' },
+  statusText: { fontSize: 12, fontWeight: '700', color: COLORS.text },
+  reglasList: { marginTop: 10, gap: 6 },
+  subLabel: { fontSize: 12, fontWeight: '700', color: COLORS.muted, marginBottom: 4 },
+  reglaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  reglaText: { fontSize: 13, color: COLORS.text, flex: 1 },
+  regraPeso: { fontSize: 12, color: COLORS.muted, fontWeight: '600' },
+  matchHit: { color: '#16a34a' }
 });

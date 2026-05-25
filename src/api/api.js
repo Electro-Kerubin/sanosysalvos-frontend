@@ -72,6 +72,9 @@ export default {
   // Otros
   getGeo: params => api.get('/api/geo', { params }),
   getMatches: reportId => api.get('/api/matching', { params: { reportId } }),
+  getMatchingReglas: () => api.get('/api/matching/reglas/activas'),
+  getCoincidenciasPorReporte: id => api.get(`/api/matching/reportes/${id}`),
+  procesarCoincidencia: id => api.post(`/api/matching/solicitudes/${id}/procesar`),
   getNotifications: () => api.get('/api/notificaciones'),
   uploadMedia: data => api.post('/api/storage', data),
   health: () => api.get('/actuator/health'),
