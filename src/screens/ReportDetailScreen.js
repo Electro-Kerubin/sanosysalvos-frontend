@@ -62,6 +62,20 @@ function mapDTO(dto, customSpeciesMap = {}, customBreedMap = {}, customMarkMap =
   };
 }
 
+const SCORE_MIN = 70;
+
+function ScoreBadge({ puntaje }) {
+  const p = Number(puntaje) || 0;
+  const bg = p >= 75 ? '#dcfce7' : '#fef9c3';
+  const color = p >= 75 ? '#16a34a' : '#d97706';
+  const label = p >= 75 ? 'Alta' : 'Media';
+  return (
+    <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: bg }}>
+      <Text style={{ fontSize: 12, fontWeight: '800', color }}>{label} · {p.toFixed(0)} pts</Text>
+    </View>
+  );
+}
+
 export default function ReportDetailScreen({ navigation, route }) {
   const { width } = useWindowDimensions();
   const reportId = route?.params?.reportId;
@@ -70,20 +84,35 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [coincidencias, setCoincidencias] = useState([]);
+  const [reportsMap, setReportsMap] = useState({});
 
   useEffect(() => {
     if (!reportId) { setError('ID de reporte no especificado.'); setLoading(false); return; }
     setLoading(true);
+
     Promise.all([
       api.getReport(reportId),
+      api.getReports().catch(() => ({ data: [] })),
+      api.getCoincidenciasPorReporte(reportId).catch(() => ({ data: [] })),
       getCustomSpeciesMap(),
       getStoredMap(CUSTOM_BREEDS_STORAGE_KEY),
       getStoredMap(CUSTOM_MARKS_STORAGE_KEY),
       getStoredMap(REPORT_PHOTOS_STORAGE_KEY),
       getStoredMap(REPORT_ADDRESS_STORAGE_KEY),
       getStoredMap(REPORT_CONTACT_METHOD_STORAGE_KEY),
-    ])
-      .then(([res, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap]) => setReport(mapDTO(res.data, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap)))
+    ]).then(([resReport, resAll, resCoinc, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap]) => {
+      setReport(mapDTO(resReport.data, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap));
+
+      const items = Array.isArray(resAll.data) ? resAll.data
+        : (Array.isArray(resAll.data?.content) ? resAll.data.content : []);
+      const map = {};
+      items.forEach(r => { map[r.idReporteMascota] = r; });
+      setReportsMap(map);
+
+      const lista = Array.isArray(resCoinc.data) ? resCoinc.data : [];
+      setCoincidencias(lista.filter(c => Number(c.puntajeTotal) >= SCORE_MIN));
+    })
       .catch(err => setError(err?.response?.data?.message || err?.message || 'Error al cargar el reporte.'))
       .finally(() => setLoading(false));
   }, [reportId]);
@@ -194,6 +223,35 @@ export default function ReportDetailScreen({ navigation, route }) {
                 {report.contactPhone ? <Text style={styles.contactLine}>{report.contactPhone}</Text> : null}
                 {report.contactEmail ? <Text style={styles.contactLine}>{report.contactEmail}</Text> : null}
               </View>
+
+              {/* ── Coincidencias ─────────────────────────────────────── */}
+              <Text style={styles.sectionLabel}>Posibles coincidencias</Text>
+              {coincidencias.length === 0 ? (
+                <Text style={styles.noMatch}>El motor aún no encontró coincidencias con puntaje ≥ {SCORE_MIN} pts.</Text>
+              ) : (
+                coincidencias.map(c => {
+                  const contId = c.idReportePerdido === reportId ? c.idReporteEncontrado : c.idReportePerdido;
+                  const contDto = reportsMap[contId];
+                  const tipoDesc = (contDto?.descripcionTipoReporte || '').toLowerCase();
+                  const tipoLabel = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
+                  const name = contDto?.nombreMascota || `Reporte #${contId}`;
+                  return (
+                    <Pressable
+                      key={c.idCoincidenciaResultado}
+                      onPress={() => navigation.navigate('ReportDetail', { reportId: contId })}
+                      style={styles.matchCard}
+                    >
+                      <View style={styles.matchInfo}>
+                        <Text style={styles.matchName}>{name}</Text>
+                        <View style={[styles.matchTypePill, tipoLabel === 'Encontrado' ? styles.found : styles.searching]}>
+                          <Text style={styles.matchTypeText}>{tipoLabel}</Text>
+                        </View>
+                      </View>
+                      <ScoreBadge puntaje={c.puntajeTotal} />
+                    </Pressable>
+                  );
+                })
+              )}
             </View>
 
           </View>
@@ -303,4 +361,19 @@ const styles = StyleSheet.create({
   },
   contactName: { fontSize: 16, fontWeight: '800', color: COLORS.text },
   contactLine: { color: COLORS.muted, marginTop: 4 },
+  noMatch: { color: COLORS.muted, fontSize: 13, lineHeight: 20 },
+  matchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: COLORS.soft,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  matchInfo: { flex: 1, gap: 4, marginRight: 10 },
+  matchName: { fontSize: 14, fontWeight: '800', color: COLORS.text },
+  matchTypePill: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  matchTypeText: { fontSize: 10, fontWeight: '800', color: COLORS.text },
 });
