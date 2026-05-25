@@ -9,8 +9,10 @@ function buildMapHtml(reports) {
       id: r.id,
       lat: r.lat,
       lng: r.lng,
-      name: r.name.replace(/'/g, "\\'"),
+      name: (r.name || 'Sin nombre').replace(/'/g, "\\'"),
       status: r.status,
+      species: (r.species || '').replace(/'/g, "\\'"),
+      breed: (r.breed || '').replace(/'/g, "\\'"),
     }));
 
   return `<!DOCTYPE html>
@@ -44,15 +46,21 @@ function buildMapHtml(reports) {
         iconAnchor: [9, 9],
         popupAnchor: [0, -12]
       });
+      var popup = L.popup({ closeButton: false, offset: [0, -6] }).setContent(
+        '<div style="font-family:sans-serif;font-size:13px;line-height:1.6;min-width:120px">' +
+        '<strong>' + r.name + '</strong><br>' +
+        (r.species ? '<span style="color:#6b7280">' + r.species + (r.breed ? ' · ' + r.breed : '') + '</span><br>' : '') +
+        '<span style="color:' + color + ';font-weight:700">' + r.status + '</span>' +
+        '<br><span style="color:#9ca3af;font-size:11px">Clic para ver detalle</span>' +
+        '</div>'
+      );
+
       L.marker([r.lat, r.lng], { icon: icon })
         .addTo(map)
-        .bindPopup(
-          '<div style="font-family:sans-serif;font-size:13px;line-height:1.5">' +
-          '<strong>' + r.name + '</strong><br>' +
-          '<span style="color:' + color + ';font-weight:600">' + r.status + '</span>' +
-          '</div>'
-        )
-        .on('click', function() {
+        .bindPopup(popup)
+        .on('mouseover', function() { this.openPopup(); })
+        .on('mouseout',  function() { this.closePopup(); })
+        .on('click',     function() {
           parent.postMessage({ type: 'REPORT_CLICK', reportId: r.id }, '*');
         });
     });
