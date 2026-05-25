@@ -10,14 +10,17 @@ const links = [
   { key: 'Logout', label: 'Cerrar sesión', icon: 'log-out-outline' }
 ];
 
-export default function ResponsiveNav({ navigation, openMenu, onLogout }) {
+export default function ResponsiveNav({ navigation, openMenu, onLogout, notificationBadgeCount = 0 }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 760;
 
   if (isMobile) {
     return (
       <Pressable onPress={openMenu} style={styles.mobileButton}>
-        <Ionicons name="menu" size={24} color={COLORS.text} />
+        <View style={styles.iconWrap}>
+          <Ionicons name="menu" size={24} color={COLORS.text} />
+          {notificationBadgeCount > 0 && <View style={styles.badgeDot}><Text style={styles.badgeText}>{notificationBadgeCount > 9 ? '9+' : notificationBadgeCount}</Text></View>}
+        </View>
       </Pressable>
     );
   }
@@ -30,7 +33,10 @@ export default function ResponsiveNav({ navigation, openMenu, onLogout }) {
           onPress={() => (item.key === 'Logout' ? onLogout?.() : navigation.navigate(item.key))}
           style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}
         >
-          <Ionicons name={item.icon} size={18} color={COLORS.text} />
+          <View style={styles.iconWrap}>
+            <Ionicons name={item.icon} size={18} color={COLORS.text} />
+            {item.key === 'Notifications' && notificationBadgeCount > 0 && <View style={styles.badgeDot}><Text style={styles.badgeText}>{notificationBadgeCount > 9 ? '9+' : notificationBadgeCount}</Text></View>}
+          </View>
           <Text style={styles.navText}>{item.label}</Text>
         </Pressable>
       ))}
@@ -67,5 +73,21 @@ const styles = StyleSheet.create({
     elevation: 1
   },
   navText: { fontSize: 13, fontWeight: '700', color: COLORS.text },
+  iconWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  badgeDot: {
+    position: 'absolute',
+    top: -7,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 999,
+    backgroundColor: '#ef4444',
+    borderWidth: 1.5,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800', lineHeight: 10 },
   pressed: { opacity: 0.9, transform: [{ translateY: 1 }] }
 });

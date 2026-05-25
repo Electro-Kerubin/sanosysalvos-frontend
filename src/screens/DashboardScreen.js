@@ -18,6 +18,7 @@ const CUSTOM_MARKS_STORAGE_KEY = 'customMarksByReportId';
 const REPORT_PHOTOS_STORAGE_KEY = 'reportPhotosByReportId';
 const REPORT_ADDRESS_STORAGE_KEY = 'reportAddressByReportId';
 const REPORT_CONTACT_METHOD_STORAGE_KEY = 'reportContactMethodByReportId';
+const NOTIFICATIONS_SEEN_SNAPSHOT_KEY = 'matchingNotificationsSeenSnapshot';
 
 function getMyReportIds() {
   try {
@@ -33,6 +34,15 @@ async function getCustomSpeciesMap() {
   } catch (_) {
     return {};
   }
+}
+
+function buildNotificationSnapshot(matchingCoincidencias) {
+  const entries = Object.entries(matchingCoincidencias)
+    .map(([reportId, list]) => [String(reportId), Array.isArray(list) ? list : []])
+    .filter(([, list]) => list.length > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  return JSON.stringify(entries);
 }
 
 async function getStoredMap(storageKey) {
@@ -122,6 +132,7 @@ export default function DashboardScreen({ navigation }) {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [reportToDelete, setReportToDelete] = useState(null);
   const [deletingReportId, setDeletingReportId] = useState(null);
+  const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
 
   const handleLogout = () => {
     setLogoutModalVisible(true);
@@ -276,11 +287,30 @@ export default function DashboardScreen({ navigation }) {
     return () => clearInterval(matchingIntervalRef.current);
   }, [runMatchingCheck]);
 
+  useEffect(() => {
+    let mounted = true;
+    const syncBadge = async () => {
+      const currentSnapshot = buildNotificationSnapshot(matchingCoincidencias);
+      const activeCount = Object.values(matchingCoincidencias).reduce((total, list) => total + (Array.isArray(list) ? list.length : 0), 0);
+      if (!activeCount) {
+        if (mounted) setNotificationBadgeCount(0);
+        return;
+      }
+
+      const seenSnapshot = await AsyncStorage.getItem(NOTIFICATIONS_SEEN_SNAPSHOT_KEY);
+      if (!mounted) return;
+      setNotificationBadgeCount(seenSnapshot === currentSnapshot ? 0 : activeCount);
+    };
+
+    syncBadge();
+    return () => { mounted = false; };
+  }, [matchingCoincidencias]);
+
   return (
     <ScreenShell padded={false} scroll={false}>
       <View style={styles.header}>
         <LogoBanner compact />
-        <ResponsiveNav navigation={navigation} openMenu={() => setMenuOpen((value) => !value)} onLogout={handleLogout} />
+        <ResponsiveNav navigation={navigation} openMenu={() => setMenuOpen((value) => !value)} onLogout={handleLogout} notificationBadgeCount={notificationBadgeCount} />
       </View>
 
       {menuOpen ? (
