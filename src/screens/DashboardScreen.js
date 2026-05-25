@@ -438,14 +438,18 @@ export default function DashboardScreen({ navigation }) {
           {Object.keys(matchingCoincidencias).length > 0 && (
             <View style={styles.reglasList}>
               <Text style={styles.subLabel}>Coincidencias por mis reportes</Text>
-              {Object.entries(matchingCoincidencias).map(([id, lista]) => (
-                <View key={id} style={styles.reglaRow}>
-                  <Text style={styles.reglaText}>Reporte #{id}</Text>
-                  <Text style={[styles.regraPeso, lista.length > 0 && styles.matchHit]}>
-                    {lista.length > 0 ? `${lista.length} coincidencia(s)` : 'Sin coincidencias'}
-                  </Text>
-                </View>
-              ))}
+              {Object.entries(matchingCoincidencias).map(([id, lista]) => {
+                const rep = myReports.find(r => String(r.id) === String(id));
+                const label = rep ? `${rep.name} #${id}` : `Reporte #${id}`;
+                return (
+                  <View key={id} style={styles.reglaRow}>
+                    <Text style={styles.reglaText}>{label}</Text>
+                    <Text style={[styles.regraPeso, lista.length > 0 && styles.matchHit]}>
+                      {lista.length > 0 ? `${lista.length} coincidencia(s)` : 'Sin coincidencias'}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           )}
 
