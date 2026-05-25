@@ -67,10 +67,31 @@ export default function PublishReportScreen({ navigation, route }) {
   const [idComuna, setIdComuna] = useState(null);
   const [direccion, setDireccion] = useState('');
 
-  const handleCoordinateSelected = useCallback((lat, lng) => {
+  const normalizeStr = s =>
+    (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  const handleCoordinateSelected = useCallback(async (lat, lng) => {
     setCoordLat(lat);
     setCoordLng(lng);
-  }, []);
+    setIdComuna(null);
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es`,
+        { headers: { 'User-Agent': 'SanoSysalvos/1.0' } }
+      );
+      const data = await res.json();
+      const addr = data.address || {};
+      const placeName = addr.municipality || addr.city || addr.town || addr.village || '';
+      if (placeName) {
+        const needle = normalizeStr(placeName);
+        const match = comunas.find(c => normalizeStr(c.descripcion) === needle);
+        if (match) setIdComuna(match.id);
+      }
+    } catch (_) {
+      // el usuario puede seleccionar manualmente
+    }
+  }, [comunas]);
 
   // Mascota
   const [nombreMascota, setNombreMascota] = useState('');
@@ -329,7 +350,7 @@ export default function PublishReportScreen({ navigation, route }) {
 
         {coordLat != null && (
           <>
-            <Field label="Comuna *">
+            <Field label={`Comuna *${idComuna ? ` — ${comunas.find(c => c.id === idComuna)?.descripcion ?? ''}` : ' — detectando...'}`}>
               <SelectPill options={comunas} value={idComuna} onChange={setIdComuna} />
             </Field>
 
