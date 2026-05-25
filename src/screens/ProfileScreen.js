@@ -1,97 +1,149 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenShell from '../components/ScreenShell';
-import api from '../api/api';
+import PrimaryButton from '../components/PrimaryButton';
 import { COLORS } from '../styles/theme';
 
+function getTokenPayload() {
+  try {
+    const token = typeof window !== 'undefined' ? window.localStorage?.getItem('token') : null;
+    if (!token) return {};
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (_) { return {}; }
+}
+
+function loadSavedProfile() {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage?.getItem('profile') : null;
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) { return {}; }
+}
+
+function saveProfile(data) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.localStorage?.setItem('profile', JSON.stringify(data));
+    }
+  } catch (_) {}
+}
+
+const INPUT_STYLE = {
+  minHeight: 52,
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: COLORS.border,
+  backgroundColor: COLORS.surface,
+  paddingHorizontal: 16,
+  color: COLORS.text,
+  fontSize: 15,
+};
+
 export default function ProfileScreen({ navigation }) {
-  const [profile, setProfile] = useState({
-    name: 'María Torres',
-    email: 'maria@email.com',
-    phone: '+51 999 111 222'
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const tokenPayload = useMemo(() => getTokenPayload(), []);
+  const savedProfile = useMemo(() => loadSavedProfile(), []);
 
-  useEffect(() => {
-    let mounted = true;
-    setLoading(true);
+  const email = tokenPayload.sub || tokenPayload.email || savedProfile.email || '';
+  const initialName = savedProfile.name || tokenPayload.nombre || tokenPayload.name || '';
+  const initialPhone = savedProfile.phone || '';
 
-    api.getProfile()
-      .then((res) => {
-        if (!mounted) return;
-        const data = res?.data || {};
-        const nextProfile = {
-          name: data?.name || data?.nombre || data?.fullName || profile.name,
-          email: data?.email || data?.correo || profile.email,
-          phone: data?.phone || data?.telefono || data?.celular || profile.phone
-        };
-        setProfile(nextProfile);
-        setError(null);
-      })
-      .catch((err) => {
-        console.warn('No se pudo cargar perfil desde API, usando datos locales.', err?.message || err);
-        if (!mounted) return;
-        setError(err);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+  const [editMode, setEditMode] = useState(false);
+  const [name, setName] = useState(initialName);
+  const [phone, setPhone] = useState(initialPhone);
+  const [saved, setSaved] = useState(false);
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const handleSave = () => {
+    const updated = { name: name.trim(), phone: phone.trim(), email };
+    saveProfile(updated);
+    setSaved(true);
+    setEditMode(false);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const handleCancel = () => {
+    setName(initialName);
+    setPhone(initialPhone);
+    setEditMode(false);
+  };
 
   return (
-    <ScreenShell title="Perfil" subtitle="Aquí puedes ver y cambiar los datos de contacto enlazados a tus reportes" scroll>
+    <ScreenShell title="Perfil" subtitle="Tus datos de contacto enlazados a los reportes" scroll>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={18} color={COLORS.text} />
         </Pressable>
       </View>
-      {loading ? <Text style={styles.stateText}>Cargando perfil...</Text> : null}
-      {!loading && error ? <Text style={styles.stateText}>No se pudo actualizar desde el servidor. Mostrando datos guardados.</Text> : null}
+
+      {saved && (
+        <View style={styles.successBanner}>
+          <Text style={styles.successText}>Perfil guardado correctamente.</Text>
+        </View>
+      )}
+
       <View style={styles.card}>
-        <Text style={styles.label}>Usuario</Text>
-        <Text style={styles.value}>{profile.name}</Text>
-        <Text style={styles.label}>Correo</Text>
-        <Text style={styles.value}>{profile.email}</Text>
+        <Text style={styles.label}>Correo electrónico</Text>
+        <Text style={styles.value}>{email || '—'}</Text>
+
+        <Text style={styles.label}>Nombre</Text>
+        {editMode ? (
+          <TextInput
+            style={INPUT_STYLE}
+            value={name}
+            onChangeText={setName}
+            placeholder="Tu nombre completo"
+            placeholderTextColor={COLORS.muted}
+          />
+        ) : (
+          <Text style={styles.value}>{name || '—'}</Text>
+        )}
+
         <Text style={styles.label}>Teléfono</Text>
-        <Text style={styles.value}>{profile.phone}</Text>
+        {editMode ? (
+          <TextInput
+            style={INPUT_STYLE}
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="Ej: 912345678"
+            placeholderTextColor={COLORS.muted}
+            keyboardType="numeric"
+          />
+        ) : (
+          <Text style={styles.value}>{phone || '—'}</Text>
+        )}
       </View>
+
+      {editMode ? (
+        <View style={styles.editActions}>
+          <PrimaryButton title="Guardar" onPress={handleSave} style={styles.saveBtn} />
+          <PrimaryButton title="Cancelar" variant="ghost" onPress={handleCancel} style={styles.cancelBtn} />
+        </View>
+      ) : (
+        <PrimaryButton title="Editar perfil" variant="ghost" onPress={() => setEditMode(true)} style={styles.editBtn} />
+      )}
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    position: 'absolute',
-    top: 18,
-    right: 20,
-    zIndex: 10
-  },
+  header: { position: 'absolute', top: 18, right: 20, zIndex: 10 },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center'
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
+    alignItems: 'center', justifyContent: 'center'
   },
+  successBanner: {
+    marginTop: 16, padding: 12, borderRadius: 12,
+    backgroundColor: '#dcfce7', borderWidth: 1, borderColor: '#86efac'
+  },
+  successText: { color: '#166534', fontSize: 13, fontWeight: '600' },
   card: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 20,
-    padding: 18,
-    marginTop: 20,
-    gap: 6
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 20, padding: 18, marginTop: 20, gap: 6
   },
-  stateText: { color: COLORS.muted, fontSize: 13, marginTop: 16 },
-  label: { color: COLORS.muted, fontSize: 12, marginTop: 10 },
-  value: { color: COLORS.text, fontSize: 16, fontWeight: '800' }
+  label: { color: COLORS.muted, fontSize: 12, marginTop: 10, fontWeight: '600' },
+  value: { color: COLORS.text, fontSize: 16, fontWeight: '800' },
+  editActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  saveBtn: { flex: 1 },
+  cancelBtn: { flex: 1 },
+  editBtn: { marginTop: 16 },
 });

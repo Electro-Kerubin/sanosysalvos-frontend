@@ -11,19 +11,11 @@ import ConfirmModal from '../components/ConfirmModal';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
-function getEmailFromToken() {
-  try {
-    const token = typeof window !== 'undefined' ? window.localStorage?.getItem('token') : null;
-    if (!token) return null;
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.sub || payload.email || null;
-  } catch (_) { return null; }
-}
-
 // Convierte el DTO del backend al formato que usan los componentes de UI
-function mapReporteDTO(dto, userEmail) {
+function mapReporteDTO(dto) {
   const tipoDesc = (dto.descripcionTipoReporte || '').toLowerCase();
   const status = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
+
   return {
     id: dto.idReporteMascota,
     name: dto.nombreMascota || 'Sin nombre',
@@ -35,9 +27,7 @@ function mapReporteDTO(dto, userEmail) {
     lng: dto.longitud ?? dto.lng ?? null,
     media: [],
     contact: dto.nombresContacto || '',
-    isMine: userEmail && dto.correoContacto
-      ? dto.correoContacto.toLowerCase() === userEmail.toLowerCase()
-      : false,
+    isMine: false,
     createdAt: dto.fechaReporte || dto.fechaExtravio || new Date().toISOString(),
   };
 }
@@ -68,6 +58,7 @@ export default function DashboardScreen({ navigation }) {
   const [page, setPage] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [expandedReportId, setExpandedReportId] = useState(null);
 
   const handleLogout = () => {
     setLogoutModalVisible(true);
@@ -88,8 +79,6 @@ export default function DashboardScreen({ navigation }) {
       setLoading(true);
       setError(null);
 
-      const userEmail = getEmailFromToken();
-
       Promise.all([
         api.getReports(),
         api.getCoordenadas().catch(() => ({ data: [] })),
@@ -104,7 +93,7 @@ export default function DashboardScreen({ navigation }) {
           (resCoordenadas?.data || []).forEach(c => { coordMap[c.idReporte] = c; });
 
           setReports(items.map(dto => {
-            const mapped = mapReporteDTO(dto, userEmail);
+            const mapped = mapReporteDTO(dto);
             const coord = coordMap[mapped.id];
             if (coord) { mapped.lat = coord.ubicacionLat; mapped.lng = coord.ubicacionLon; }
             return mapped;
@@ -183,23 +172,32 @@ export default function DashboardScreen({ navigation }) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reportes realizados</Text>
-          {myReports.map((report) => (
-            <View key={report.id} style={styles.mineRow}>
-              <View style={styles.mineCardWrap}>
+          {myReports.map((report) => {
+            const isExpanded = expandedReportId === report.id;
+            return (
+              <View key={report.id} style={styles.mineRow}>
                 <ReportCard report={report} onPress={() => navigation.navigate('ReportDetail', { reportId: report.id })} />
+                <Pressable
+                  onPress={() => setExpandedReportId(isExpanded ? null : report.id)}
+                  style={styles.toggleRow}
+                >
+                  <Text style={styles.toggleText}>{isExpanded ? '▲ Ocultar opciones' : '▼ Ver opciones'}</Text>
+                </Pressable>
+                {isExpanded && (
+                  <View style={styles.mineActions}>
+                    <View style={[styles.statePill, report.status === 'Encontrado' ? styles.stateFound : styles.stateSearching]}>
+                      <Text style={styles.stateText}>{report.status}</Text>
+                    </View>
+                    <View style={styles.actionButtons}>
+                      <PrimaryButton title="Editar" variant="ghost" onPress={() => navigation.navigate('PublishReport', { reportId: report.id })} style={styles.actionButton} />
+                      <PrimaryButton title="Borrar" variant="ghost" onPress={() => {}} style={styles.actionButton} />
+                    </View>
+                    <PrimaryButton title="Cambiar contacto" onPress={() => navigation.navigate('Profile')} style={styles.contactButton} />
+                  </View>
+                )}
               </View>
-              <View style={styles.mineActions}>
-                <View style={[styles.statePill, report.status === 'Encontrado' ? styles.stateFound : styles.stateSearching]}>
-                  <Text style={styles.stateText}>{report.status}</Text>
-                </View>
-                <View style={styles.actionButtons}>
-                  <PrimaryButton title="Editar" variant="ghost" onPress={() => navigation.navigate('PublishReport', { reportId: report.id })} style={styles.actionButton} />
-                  <PrimaryButton title="Borrar" variant="ghost" onPress={() => {}} style={styles.actionButton} />
-                </View>
-                <PrimaryButton title="Cambiar contacto" onPress={() => navigation.navigate('Profile')} style={styles.contactButton} />
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </ScrollView>
       <ConfirmModal 
@@ -252,8 +250,17 @@ const styles = StyleSheet.create({
   pageChipActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
   pageText: { color: COLORS.text, fontWeight: '700' },
   pageTextActive: { color: '#fff' },
-  mineRow: { marginBottom: 18 },
-  mineCardWrap: { marginBottom: 10 },
+  mineRow: { marginBottom: 18, gap: 6 },
+  toggleRow: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: COLORS.soft,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  toggleText: { fontSize: 12, fontWeight: '700', color: COLORS.secondary },
   mineActions: {
     gap: 10,
     padding: 14,

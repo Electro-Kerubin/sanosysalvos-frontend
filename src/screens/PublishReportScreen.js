@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import MapPicker from '../components/MapPicker';
+import DatePickerInput from '../components/DatePickerInput';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
@@ -47,8 +48,16 @@ const INPUT_STYLE = (colors) => ({
   color: colors.text,
 });
 
+function getSavedProfile() {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage?.getItem('profile') : null;
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) { return {}; }
+}
+
 export default function PublishReportScreen({ navigation, route }) {
   const isEdit = Boolean(route?.params?.reportId);
+  const savedProfile = useMemo(() => getSavedProfile(), []);
 
   // Catálogos
   const [tiposReporte, setTiposReporte] = useState([]);
@@ -105,10 +114,10 @@ export default function PublishReportScreen({ navigation, route }) {
   const [edad, setEdad] = useState('');
   const [detallesExtra, setDetallesExtra] = useState('');
 
-  // Contacto
-  const [nombreContacto, setNombreContacto] = useState('');
-  const [correo, setCorreo] = useState('');
-  const [telefono, setTelefono] = useState('');
+  // Contacto — pre-llenado desde perfil guardado
+  const [nombreContacto, setNombreContacto] = useState(savedProfile.name || '');
+  const [correo, setCorreo] = useState(savedProfile.email || '');
+  const [telefono, setTelefono] = useState(savedProfile.phone || '');
   const [idCanal, setIdCanal] = useState(null);
 
   // Reporte
@@ -156,7 +165,8 @@ export default function PublishReportScreen({ navigation, route }) {
     if (!nombreContacto.trim()) return setError('El nombre de contacto es requerido.');
     if (!correo.trim()) return setError('El correo de contacto es requerido.');
     if (!idCanal) return setError('Selecciona el canal de preferencia.');
-    if (coordLat != null && !idComuna) return setError('Selecciona la comuna para la ubicación marcada.');
+    if (coordLat == null) return setError('Debes marcar una ubicación en el mapa.');
+    if (!idComuna) return setError('Selecciona la comuna para la ubicación marcada.');
 
     setError(null);
     setSubmitting(true);
@@ -319,36 +329,30 @@ export default function PublishReportScreen({ navigation, route }) {
         {/* FECHAS */}
         <SectionTitle title="Fechas" />
 
-        <Field label="Fecha de extravío (YYYY-MM-DD)">
-          <TextInput
-            placeholder="2024-06-15"
-            placeholderTextColor={COLORS.muted}
-            style={INPUT_STYLE(COLORS)}
-            value={fechaExtravio}
-            onChangeText={setFechaExtravio}
-          />
+        <Field label="Fecha de extravío">
+          <DatePickerInput value={fechaExtravio} onChange={setFechaExtravio} />
         </Field>
 
-        <Field label="Fecha de avistamiento (YYYY-MM-DD)">
-          <TextInput
-            placeholder="2024-06-20"
-            placeholderTextColor={COLORS.muted}
-            style={INPUT_STYLE(COLORS)}
-            value={fechaAvistamiento}
-            onChangeText={setFechaAvistamiento}
-          />
+        <Field label="Fecha de avistamiento">
+          <DatePickerInput value={fechaAvistamiento} onChange={setFechaAvistamiento} />
         </Field>
 
         {/* UBICACIÓN */}
         <SectionTitle title="Ubicación del avistamiento" />
 
-        <Field label="Haz clic en el mapa para marcar dónde fue visto (opcional)">
+        <Field label="Haz clic en el mapa para marcar dónde fue visto *">
           <MapPicker
             lat={coordLat}
             lng={coordLng}
             onCoordinateSelected={handleCoordinateSelected}
           />
         </Field>
+
+        {coordLat == null && (
+          <View style={styles.mapHint}>
+            <Text style={styles.mapHintText}>Haz clic en el mapa para seleccionar la ubicación (obligatorio)</Text>
+          </View>
+        )}
 
         {coordLat != null && (
           <>
@@ -470,5 +474,7 @@ const styles = StyleSheet.create({
   loadingText: { color: COLORS.muted, fontSize: 14 },
   changeLink: { fontSize: 12, color: COLORS.secondary, marginTop: 4, textDecorationLine: 'underline' },
   detectingText: { fontSize: 12, color: COLORS.muted, marginTop: 4 },
+  mapHint: { padding: 10, borderRadius: 10, backgroundColor: '#fef9c3', borderWidth: 1, borderColor: '#fde047' },
+  mapHintText: { fontSize: 12, color: '#854d0e', fontWeight: '600' },
   submitButton: { marginTop: 20 },
 });
