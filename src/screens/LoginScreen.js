@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, Image } from 'react-native';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const passwordRef = useRef(null);
 
   const handleLogin = async () => {
     try {
@@ -58,14 +59,19 @@ export default function LoginScreen({ navigation }) {
             autoCapitalize="none" 
             value={email}
             onChangeText={setEmail}
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
           />
           <TextInput 
+            ref={passwordRef}
             placeholder="Contraseña" 
             placeholderTextColor={COLORS.muted} 
             style={styles.input} 
             secureTextEntry 
             value={password}
             onChangeText={setPassword}
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
           />
           <PrimaryButton title="Entrar" onPress={handleLogin} style={styles.button} />
         </View>

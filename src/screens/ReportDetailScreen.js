@@ -76,6 +76,27 @@ function ScoreBadge({ puntaje }) {
   );
 }
 
+function toNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getDistanceKm(lat1, lng1, lat2, lng2) {
+  const earthRadiusKm = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(km) {
+  if (km == null || Number.isNaN(km)) return '';
+  if (km < 1) return `${Math.max(50, Math.round(km * 1000))} m`;
+  return `${km.toFixed(km < 10 ? 1 : 0)} km`;
+}
+
 export default function ReportDetailScreen({ navigation, route }) {
   const { width } = useWindowDimensions();
   const reportId = route?.params?.reportId;
@@ -86,6 +107,7 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [error, setError] = useState(null);
   const [coincidencias, setCoincidencias] = useState([]);
   const [reportsMap, setReportsMap] = useState({});
+  const [nearbyReports, setNearbyReports] = useState([]);
 
   useEffect(() => {
     if (!reportId) { setError('ID de reporte no especificado.'); setLoading(false); return; }
@@ -95,23 +117,69 @@ export default function ReportDetailScreen({ navigation, route }) {
       api.getReport(reportId),
       api.getReports().catch(() => ({ data: [] })),
       api.getCoincidenciasPorReporte(reportId).catch(() => ({ data: [] })),
+      api.getCoordenadas().catch(() => ({ data: [] })),
       getCustomSpeciesMap(),
       getStoredMap(CUSTOM_BREEDS_STORAGE_KEY),
       getStoredMap(CUSTOM_MARKS_STORAGE_KEY),
       getStoredMap(REPORT_PHOTOS_STORAGE_KEY),
       getStoredMap(REPORT_ADDRESS_STORAGE_KEY),
       getStoredMap(REPORT_CONTACT_METHOD_STORAGE_KEY),
-    ]).then(([resReport, resAll, resCoinc, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap]) => {
-      setReport(mapDTO(resReport.data, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap));
+    ]).then(([resReport, resAll, resCoinc, resCoords, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap]) => {
+      const coordItems = Array.isArray(resCoords.data) ? resCoords.data : [];
+      const coordMap = {};
+      coordItems.forEach(item => {
+        coordMap[String(item.idReporte)] = item;
+      });
 
       const items = Array.isArray(resAll.data) ? resAll.data
         : (Array.isArray(resAll.data?.content) ? resAll.data.content : []);
       const map = {};
-      items.forEach(r => { map[r.idReporteMascota] = r; });
+      const mappedReports = items.map(dto => {
+        const mapped = mapDTO(dto, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap);
+        const coord = coordMap[String(mapped.id)] || coordMap[String(dto.idReporteMascota)];
+        if (coord) {
+          mapped.lat = toNumber(coord.ubicacionLat ?? coord.latitud ?? coord.lat);
+          mapped.lng = toNumber(coord.ubicacionLon ?? coord.longitud ?? coord.lng);
+          mapped.address = mapped.address || coord.direccion || '';
+        }
+        map[mapped.id] = dto;
+        return mapped;
+      });
       setReportsMap(map);
+
+      const currentReport = mappedReports.find(item => String(item.id) === String(reportId)) || mapDTO(resReport.data, customSpeciesMap, customBreedMap, customMarkMap, photoMap, addressMap, contactMethodMap);
+      const currentCoord = coordMap[String(reportId)] || coordMap[String(currentReport.id)];
+      const currentLat = toNumber(currentCoord?.ubicacionLat ?? currentReport.lat);
+      const currentLng = toNumber(currentCoord?.ubicacionLon ?? currentReport.lng);
+
+      setReport({
+        ...currentReport,
+        lat: currentLat,
+        lng: currentLng,
+      });
 
       const lista = Array.isArray(resCoinc.data) ? resCoinc.data : [];
       setCoincidencias(lista.filter(c => Number(c.puntajeTotal) >= SCORE_MIN));
+
+      if (currentLat != null && currentLng != null) {
+        const nearby = mappedReports
+          .filter(item => String(item.id) !== String(reportId))
+          .map(item => {
+            const itemLat = toNumber(item.lat);
+            const itemLng = toNumber(item.lng);
+            if (itemLat == null || itemLng == null) return null;
+            return {
+              ...item,
+              distanceKm: getDistanceKm(currentLat, currentLng, itemLat, itemLng),
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.distanceKm - b.distanceKm)
+          .slice(0, 5);
+        setNearbyReports(nearby);
+      } else {
+        setNearbyReports([]);
+      }
     })
       .catch(err => setError(err?.response?.data?.message || err?.message || 'Error al cargar el reporte.'))
       .finally(() => setLoading(false));
@@ -149,6 +217,33 @@ export default function ReportDetailScreen({ navigation, route }) {
       {report && !loading && (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={[styles.wrapper, isWide ? styles.row : styles.column]}>
+
+            <View style={styles.sidebarPane}>
+              <View style={styles.nearbyCard}>
+                <Text style={styles.sidebarTitle}>Cercanos a este punto</Text>
+                <Text style={styles.sidebarHint}>Los 5 reportes más próximos con coordenadas registradas.</Text>
+                {nearbyReports.length === 0 ? (
+                  <Text style={styles.nearbyEmpty}>No hay otros reportes cercanos disponibles.</Text>
+                ) : nearbyReports.map(item => (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => navigation.navigate('ReportDetail', { reportId: item.id })}
+                    style={styles.nearbyItem}
+                  >
+                    <View style={styles.nearbyItemTop}>
+                      <Text style={styles.nearbyName} numberOfLines={1}>{item.name}</Text>
+                      <View style={[styles.nearbyStatus, item.status === 'Encontrado' ? styles.found : styles.searching]}>
+                        <Text style={styles.nearbyStatusText}>{item.status}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.nearbyMeta} numberOfLines={1}>
+                      {item.species || item.breed ? [item.species, item.breed].filter(Boolean).join(' · ') : 'Sin especie registrada'}
+                    </Text>
+                    <Text style={styles.nearbyDistance}>{formatDistance(item.distanceKm)} de distancia</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
 
             {/* Panel izquierdo: imagen placeholder */}
             <View style={styles.mediaPane}>
@@ -291,13 +386,44 @@ const styles = StyleSheet.create({
   loadingText: { color: COLORS.muted, fontSize: 14 },
   errorText: { color: COLORS.accent, fontSize: 14, fontWeight: '600', textAlign: 'center' },
   content: { padding: 20, paddingBottom: 32, width: '100%', alignItems: 'center' },
-  wrapper: { gap: 18 },
+  wrapper: { gap: 18, width: '100%', maxWidth: 1260, alignItems: 'flex-start' },
   row: { flexDirection: 'row' },
   column: { flexDirection: 'column' },
-  mediaPane: { flex: 1.1 },
+  sidebarPane: { flex: 0.42, minWidth: 240, maxWidth: 300 },
+  nearbyCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 30,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
+  },
+  sidebarTitle: { fontSize: 18, fontWeight: '900', color: COLORS.text, letterSpacing: -0.2 },
+  sidebarHint: { color: COLORS.muted, fontSize: 12, lineHeight: 18 },
+  nearbyEmpty: { color: COLORS.muted, fontSize: 13, lineHeight: 20 },
+  nearbyItem: {
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: COLORS.soft,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 6,
+  },
+  nearbyItemTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  nearbyName: { flex: 1, fontSize: 14, fontWeight: '800', color: COLORS.text },
+  nearbyStatus: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  nearbyStatusText: { fontSize: 10, fontWeight: '800', color: COLORS.text },
+  nearbyMeta: { color: COLORS.muted, fontSize: 12 },
+  nearbyDistance: { color: COLORS.secondary, fontSize: 12, fontWeight: '700' },
+  mediaPane: { flex: 0.95, minWidth: 280 },
   mediaViewer: {
     borderRadius: 30,
-    minHeight: 300,
+    minHeight: 260,
     borderWidth: 1,
     borderColor: COLORS.border,
     overflow: 'hidden',
@@ -307,11 +433,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 1,
   },
-  mediaImageWrap: { flex: 1, minHeight: 300 },
-  mediaImage: { width: '100%', height: '100%', minHeight: 300 },
+  mediaImageWrap: { flex: 1, minHeight: 260 },
+  mediaImage: { width: '100%', height: '100%', minHeight: 260 },
   mediaPlaceholder: {
     flex: 1,
-    minHeight: 300,
+    minHeight: 260,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
@@ -321,7 +447,8 @@ const styles = StyleSheet.create({
   mediaPlaceholderText: { fontSize: 26, fontWeight: '900', color: COLORS.text },
   mediaPlaceholderSub: { fontSize: 13, color: COLORS.muted },
   infoPane: {
-    flex: 0.9,
+    flex: 1.05,
+    minWidth: 320,
     backgroundColor: COLORS.surface,
     borderRadius: 30,
     padding: 20,

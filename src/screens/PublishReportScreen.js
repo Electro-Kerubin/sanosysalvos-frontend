@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
+import ConfirmModal from '../components/ConfirmModal';
 import MapPicker from '../components/MapPicker';
 import DatePickerInput from '../components/DatePickerInput';
 import ImagePickerInput from '../components/ImagePickerInput';
@@ -267,6 +268,7 @@ export default function PublishReportScreen({ navigation, route }) {
   const [error, setError] = useState(null);
   const [loadingEditData, setLoadingEditData] = useState(isEdit);
   const [editContext, setEditContext] = useState(null);
+  const [submitConfirmVisible, setSubmitConfirmVisible] = useState(false);
 
   const especiesConOtro = useMemo(() => [
     ...mergeOptions(especies, speciesSuggestions, { id: OTHER_SPECIES_ID, descripcion: 'Otro' }),
@@ -616,6 +618,16 @@ export default function PublishReportScreen({ navigation, route }) {
     }
   };
 
+  const requestSubmitConfirmation = () => {
+    setError(null);
+    setSubmitConfirmVisible(true);
+  };
+
+  const confirmSubmit = () => {
+    setSubmitConfirmVisible(false);
+    handleSubmit();
+  };
+
   if (loadingCatalogos || loadingEditData) {
     return (
       <ScreenShell title={isEdit ? 'Editar reporte' : 'Publicar reporte'}>
@@ -676,6 +688,9 @@ export default function PublishReportScreen({ navigation, route }) {
                 value={especiePersonalizada}
                 onChangeText={setEspeciePersonalizada}
                 autoCapitalize="words"
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={handleConfirmCustomSpecies}
               />
               <PrimaryButton title="Confirmar" onPress={handleConfirmCustomSpecies} style={styles.customSpeciesButton} />
             </View>
@@ -694,6 +709,9 @@ export default function PublishReportScreen({ navigation, route }) {
                 value={razaPersonalizada}
                 onChangeText={setRazaPersonalizada}
                 autoCapitalize="words"
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={handleConfirmCustomBreed}
               />
               <PrimaryButton title="Confirmar" onPress={handleConfirmCustomBreed} style={styles.customSpeciesButton} />
             </View>
@@ -716,6 +734,9 @@ export default function PublishReportScreen({ navigation, route }) {
                 value={marcaPersonalizada}
                 onChangeText={setMarcaPersonalizada}
                 autoCapitalize="words"
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={handleConfirmCustomMark}
               />
               <PrimaryButton title="Confirmar" onPress={handleConfirmCustomMark} style={styles.customSpeciesButton} />
             </View>
@@ -871,11 +892,21 @@ export default function PublishReportScreen({ navigation, route }) {
 
         <PrimaryButton
           title={submitting ? 'Publicando...' : (isEdit ? 'Guardar cambios' : 'Publicar reporte')}
-          onPress={handleSubmit}
+          onPress={requestSubmitConfirmation}
           disabled={submitting}
           style={styles.submitButton}
         />
       </View>
+
+      <ConfirmModal
+        visible={submitConfirmVisible}
+        title={isEdit ? 'Confirmar cambios' : 'Confirmar publicación'}
+        message={isEdit
+          ? '¿Deseas guardar los cambios de este reporte? Revisa los datos antes de continuar.'
+          : '¿Deseas publicar este reporte? Revisa los datos antes de continuar.'}
+        onConfirm={confirmSubmit}
+        onCancel={() => setSubmitConfirmVisible(false)}
+      />
     </ScreenShell>
   );
 }

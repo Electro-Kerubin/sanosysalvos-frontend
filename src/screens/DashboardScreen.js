@@ -121,6 +121,28 @@ function Pagination({ totalPages, page, setPage }) {
   );
 }
 
+function CollapsibleSection({ title, hint, expanded, onToggle, children }) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionTitleRow}>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
+        </View>
+        <Pressable onPress={onToggle} style={styles.sectionToggleIcon}>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.secondary} />
+        </Pressable>
+      </View>
+
+      {expanded ? children : null}
+
+      <Pressable onPress={onToggle} style={styles.sectionFooterToggle}>
+        <Text style={styles.sectionFooterToggleText}>{expanded ? 'Ver menos...' : 'Ver más...'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function DashboardScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 980;
@@ -136,10 +158,20 @@ export default function DashboardScreen({ navigation }) {
   const [foundModalVisible, setFoundModalVisible] = useState(false);
   const [reportToMarkFound, setReportToMarkFound] = useState(null);
   const [markingFoundId, setMarkingFoundId] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({
+    map: true,
+    matching: true,
+    latest: false,
+    mine: false,
+  });
 
   const handleLogout = () => {
     setLogoutModalVisible(true);
   };
+
+  const toggleSection = useCallback((key) => {
+    setExpandedSections(current => ({ ...current, [key]: !current[key] }));
+  }, []);
 
   const confirmLogout = () => {
     setLogoutModalVisible(false);
@@ -365,32 +397,30 @@ export default function DashboardScreen({ navigation }) {
       )}
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Mapa de reportes</Text>
-            <Text style={styles.sectionHint}>Verde = encontrado · Rojo = búsqueda · Naranja = avistamiento</Text>
-          </View>
+        <CollapsibleSection
+          title="Mapa de reportes"
+          hint="Verde = encontrado · Rojo = búsqueda · Naranja = avistamiento"
+          expanded={expandedSections.map}
+          onToggle={() => toggleSection('map')}
+        >
           <DashboardMap
             reports={reportsOrdered}
             onReportPress={id => navigation.navigate('ReportDetail', { reportId: id })}
           />
-        </View>
+        </CollapsibleSection>
 
         {/* MOTOR DE COINCIDENCIAS */}
-        <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Motor de Coincidencias</Text>
-            <View style={[styles.statusPill, matchingStatus === 'online' ? styles.statusOnline : matchingStatus === 'offline' ? styles.statusOffline : styles.statusChecking]}>
-              <Text style={styles.statusText}>
-                {matchingStatus === 'online' ? '● Activo' : matchingStatus === 'offline' ? '● Sin conexión' : '◌ Verificando...'}
-              </Text>
-            </View>
-          </View>
-          {lastChecked && (
-            <Text style={styles.sectionHint}>
-              Última verificación: {lastChecked.toLocaleTimeString()} · se actualiza cada 30s
+        <CollapsibleSection
+          title="Motor de Coincidencias"
+          hint={lastChecked ? `Última verificación: ${lastChecked.toLocaleTimeString()} · se actualiza cada 30s` : 'Se actualiza cada 30s'}
+          expanded={expandedSections.matching}
+          onToggle={() => toggleSection('matching')}
+        >
+          <View style={[styles.statusPill, matchingStatus === 'online' ? styles.statusOnline : matchingStatus === 'offline' ? styles.statusOffline : styles.statusChecking]}>
+            <Text style={styles.statusText}>
+              {matchingStatus === 'online' ? '● Activo' : matchingStatus === 'offline' ? '● Sin conexión' : '◌ Verificando...'}
             </Text>
-          )}
+          </View>
 
           {matchingReglas.length > 0 && (
             <View style={styles.reglasList}>
@@ -421,18 +451,26 @@ export default function DashboardScreen({ navigation }) {
           {matchingStatus === 'offline' && (
             <Text style={styles.emptyText}>No se pudo conectar con el motor de coincidencias.</Text>
           )}
-        </View>
+        </CollapsibleSection>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Últimos reportes</Text>
+        <CollapsibleSection
+          title="Últimos reportes"
+          hint={`Total: ${reportsOrdered.length}`}
+          expanded={expandedSections.latest}
+          onToggle={() => toggleSection('latest')}
+        >
           {pagedReports.map((report) => (
             <ReportCard key={report.id} report={report} onPress={() => navigation.navigate('ReportDetail', { reportId: report.id })} />
           ))}
           <Pagination totalPages={totalPages} page={page} setPage={setPage} />
-        </View>
+        </CollapsibleSection>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Reportes realizados</Text>
+        <CollapsibleSection
+          title="Reportes realizados"
+          hint={`Guardados en este dispositivo: ${myReports.length}`}
+          expanded={expandedSections.mine}
+          onToggle={() => toggleSection('mine')}
+        >
           {myReports.length === 0 && !loading && (
             <Text style={styles.emptyText}>Aún no has creado reportes desde este dispositivo.</Text>
           )}
@@ -470,7 +508,7 @@ export default function DashboardScreen({ navigation }) {
             );
           })}
           <Pagination totalPages={myTotalPages} page={myPage} setPage={setMyPage} />
-        </View>
+        </CollapsibleSection>
       </ScrollView>
       <ConfirmModal 
         visible={logoutModalVisible}
@@ -525,9 +563,27 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 1
   },
-  sectionTitleRow: { gap: 6, marginBottom: 10 },
+  sectionTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 },
+  sectionHeading: { flex: 1, gap: 6 },
   sectionTitle: { fontSize: 22, fontWeight: '900', color: COLORS.text, letterSpacing: -0.2 },
   sectionHint: { color: COLORS.muted, fontSize: 12 },
+  sectionToggleIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.soft,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sectionFooterToggle: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  sectionFooterToggleText: { color: COLORS.secondary, fontSize: 12, fontWeight: '800' },
   pagination: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   pageChip: {
     minWidth: 36,
