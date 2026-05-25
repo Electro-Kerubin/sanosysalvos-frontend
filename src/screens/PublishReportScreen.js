@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import MapPicker from '../components/MapPicker';
@@ -53,6 +54,15 @@ function getSavedProfile() {
     const raw = typeof window !== 'undefined' ? window.localStorage?.getItem('profile') : null;
     return raw ? JSON.parse(raw) : {};
   } catch (_) { return {}; }
+}
+
+function addMyReportId(id) {
+  try {
+    const raw = window.localStorage?.getItem('myReportIds');
+    const ids = raw ? JSON.parse(raw) : [];
+    if (!ids.includes(id)) ids.push(id);
+    window.localStorage?.setItem('myReportIds', JSON.stringify(ids));
+  } catch (_) {}
 }
 
 export default function PublishReportScreen({ navigation, route }) {
@@ -203,13 +213,15 @@ export default function PublishReportScreen({ navigation, route }) {
         fechaReporte: new Date().toISOString(),
       });
 
+      const idReporte = reporteRes.data.idReporteMascota;
+      addMyReportId(idReporte);
+
       // Guardar coordenada si el usuario marcó una ubicación
       if (coordLat != null && coordLng != null && idComuna) {
-        const idReporte = reporteRes.data.idReporteMascota;
         await api.createCoordenada({
           ubicacionLat: coordLat,
           ubicacionLon: coordLng,
-          idReporte,
+          idReporte: idReporte,
           idComuna,
           direccion: direccion.trim() || null,
         }).catch(err => console.warn('Coordenada no guardada:', err?.message));
@@ -238,6 +250,11 @@ export default function PublishReportScreen({ navigation, route }) {
   return (
     <ScreenShell title={isEdit ? 'Editar reporte' : 'Publicar reporte'} scroll>
       <View style={styles.form}>
+
+        <Pressable onPress={() => navigation.navigate('Dashboard')} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={18} color={COLORS.text} />
+          <Text style={styles.backText}>Volver al Dashboard</Text>
+        </Pressable>
 
         {error ? (
           <View style={styles.errorBanner}>
@@ -437,6 +454,20 @@ export default function PublishReportScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   form: { gap: 10, paddingBottom: 32 },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    marginBottom: 4,
+  },
+  backText: { fontSize: 14, fontWeight: '600', color: COLORS.text },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',

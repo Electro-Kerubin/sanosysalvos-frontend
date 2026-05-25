@@ -11,8 +11,15 @@ import ConfirmModal from '../components/ConfirmModal';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
+function getMyReportIds() {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage?.getItem('myReportIds') : null;
+    return raw ? JSON.parse(raw) : [];
+  } catch (_) { return []; }
+}
+
 // Convierte el DTO del backend al formato que usan los componentes de UI
-function mapReporteDTO(dto) {
+function mapReporteDTO(dto, myIds) {
   const tipoDesc = (dto.descripcionTipoReporte || '').toLowerCase();
   const status = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
 
@@ -27,12 +34,12 @@ function mapReporteDTO(dto) {
     lng: dto.longitud ?? dto.lng ?? null,
     media: [],
     contact: dto.nombresContacto || '',
-    isMine: false,
+    isMine: myIds.includes(dto.idReporteMascota),
     createdAt: dto.fechaReporte || dto.fechaExtravio || new Date().toISOString(),
   };
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 5;
 
 function paginate(items, page) {
   const start = (page - 1) * PAGE_SIZE;
@@ -56,6 +63,7 @@ export default function DashboardScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 980;
   const [page, setPage] = useState(1);
+  const [myPage, setMyPage] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [expandedReportId, setExpandedReportId] = useState(null);
@@ -92,8 +100,9 @@ export default function DashboardScreen({ navigation }) {
           const coordMap = {};
           (resCoordenadas?.data || []).forEach(c => { coordMap[c.idReporte] = c; });
 
+          const myIds = getMyReportIds();
           setReports(items.map(dto => {
-            const mapped = mapReporteDTO(dto);
+            const mapped = mapReporteDTO(dto, myIds);
             const coord = coordMap[mapped.id];
             if (coord) { mapped.lat = coord.ubicacionLat; mapped.lng = coord.ubicacionLon; }
             return mapped;
@@ -115,6 +124,8 @@ export default function DashboardScreen({ navigation }) {
   const myReports = reportsOrdered.filter((report) => report.isMine);
   const pagedReports = paginate(reportsOrdered, page);
   const totalPages = Math.max(1, Math.ceil(reportsOrdered.length / PAGE_SIZE));
+  const pagedMyReports = paginate(myReports, myPage);
+  const myTotalPages = Math.max(1, Math.ceil(myReports.length / PAGE_SIZE));
 
   return (
     <ScreenShell padded={false} scroll={false}>
@@ -172,7 +183,10 @@ export default function DashboardScreen({ navigation }) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reportes realizados</Text>
-          {myReports.map((report) => {
+          {myReports.length === 0 && !loading && (
+            <Text style={styles.emptyText}>Aún no has creado reportes desde este dispositivo.</Text>
+          )}
+          {pagedMyReports.map((report) => {
             const isExpanded = expandedReportId === report.id;
             return (
               <View key={report.id} style={styles.mineRow}>
@@ -198,6 +212,7 @@ export default function DashboardScreen({ navigation }) {
               </View>
             );
           })}
+          <Pagination totalPages={myTotalPages} page={myPage} setPage={setMyPage} />
         </View>
       </ScrollView>
       <ConfirmModal 
@@ -296,5 +311,6 @@ const styles = StyleSheet.create({
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 8 },
   loadingText: { color: COLORS.muted, fontSize: 14 },
   errorBanner: { marginHorizontal: 20, marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#fca5a5' },
-  errorText: { color: '#b91c1c', fontSize: 13, fontWeight: '600' }
+  errorText: { color: '#b91c1c', fontSize: 13, fontWeight: '600' },
+  emptyText: { color: COLORS.muted, fontSize: 13, marginTop: 6 }
 });
