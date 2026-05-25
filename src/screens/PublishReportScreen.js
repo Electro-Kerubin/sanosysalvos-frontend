@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import MapPicker from '../components/MapPicker';
@@ -8,6 +9,99 @@ import DatePickerInput from '../components/DatePickerInput';
 import ImagePickerInput from '../components/ImagePickerInput';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
+
+const OTHER_SPECIES_ID = '__other__';
+const OTHER_BREED_ID = '__other_breed__';
+const OTHER_MARK_ID = '__other_mark__';
+const CUSTOM_SPECIES_STORAGE_KEY = 'customSpeciesByReportId';
+const CUSTOM_BREEDS_STORAGE_KEY = 'customBreedsByReportId';
+const CUSTOM_MARKS_STORAGE_KEY = 'customMarksByReportId';
+const REPORT_PHOTOS_STORAGE_KEY = 'reportPhotosByReportId';
+const REPORT_ADDRESS_STORAGE_KEY = 'reportAddressByReportId';
+const REPORT_CONTACT_METHOD_STORAGE_KEY = 'reportContactMethodByReportId';
+const SPECIES_SUGGESTIONS_STORAGE_KEY = 'speciesSuggestions';
+const BREED_SUGGESTIONS_STORAGE_KEY = 'breedSuggestions';
+const MAX_VISIBLE_OPTIONS = 10;
+
+function readJson(value, fallback) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+async function getStoredMap(storageKey) {
+  try {
+    return readJson(await AsyncStorage.getItem(storageKey), {});
+  } catch (_) {
+    return {};
+  }
+}
+
+async function saveStoredMap(storageKey, reportId, value) {
+  try {
+    const map = await getStoredMap(storageKey);
+    const key = String(reportId);
+    if (value) map[key] = value;
+    else delete map[key];
+    await AsyncStorage.setItem(storageKey, JSON.stringify(map));
+  } catch (_) {}
+}
+
+async function getSuggestionList(storageKey) {
+  try {
+    return readJson(await AsyncStorage.getItem(storageKey), []);
+  } catch (_) {
+    return [];
+  }
+}
+
+async function saveSuggestion(storageKey, value) {
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  try {
+    const current = await getSuggestionList(storageKey);
+    const normalized = trimmed.toLowerCase();
+    const next = [trimmed, ...current.filter(item => item.toLowerCase() !== normalized)].slice(0, MAX_VISIBLE_OPTIONS);
+    await AsyncStorage.setItem(storageKey, JSON.stringify(next));
+  } catch (_) {}
+}
+
+function normalizeText(value) {
+  return (value ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function mergeOptions(baseOptions, suggestions, otherOption) {
+  const merged = [];
+  const seen = new Set();
+
+  const push = option => {
+    if (!option || option.id == null) return;
+    const key = String(option.id);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(option);
+  };
+
+  suggestions.forEach((description, index) => {
+    const clean = (description || '').trim();
+    if (!clean) return;
+    push({ id: `custom-${normalizeText(clean)}-${index}`, descripcion: clean });
+  });
+
+  baseOptions.forEach(push);
+  if (otherOption) {
+    if (seen.has(String(otherOption.id))) return merged.slice(0, MAX_VISIBLE_OPTIONS);
+    if (merged.length >= MAX_VISIBLE_OPTIONS) {
+      merged[MAX_VISIBLE_OPTIONS - 1] = otherOption;
+    } else {
+      push(otherOption);
+    }
+  }
+
+  return merged.slice(0, MAX_VISIBLE_OPTIONS);
+}
 
 function SectionTitle({ title }) {
   return <Text style={styles.sectionTitle}>{title}</Text>;
@@ -28,7 +122,7 @@ function SelectPill({ options, value, onChange }) {
       {options.map(opt => (
         <Pressable
           key={opt.id}
-          onPress={() => onChange(opt.id)}
+          onPress={() => onChange(opt.id, opt.descripcion)}
           style={[styles.pill, value === opt.id && styles.pillActive]}
         >
           <Text style={[styles.pillText, value === opt.id && styles.pillTextActive]}>
@@ -66,6 +160,26 @@ function addMyReportId(id) {
   } catch (_) {}
 }
 
+async function saveCustomSpeciesForReport(reportId, species) {
+  try {
+    const raw = await AsyncStorage.getItem(CUSTOM_SPECIES_STORAGE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    const key = String(reportId);
+    if (species) map[key] = species;
+    else delete map[key];
+    await AsyncStorage.setItem(CUSTOM_SPECIES_STORAGE_KEY, JSON.stringify(map));
+  } catch (_) {}
+}
+
+async function removeStoredMapEntry(storageKey, reportId) {
+  try {
+    const raw = await AsyncStorage.getItem(storageKey);
+    const map = raw ? JSON.parse(raw) : {};
+    delete map[String(reportId)];
+    await AsyncStorage.setItem(storageKey, JSON.stringify(map));
+  } catch (_) {}
+}
+
 export default function PublishReportScreen({ navigation, route }) {
   const isEdit = Boolean(route?.params?.reportId);
   const savedProfile = useMemo(() => getSavedProfile(), []);
@@ -74,7 +188,9 @@ export default function PublishReportScreen({ navigation, route }) {
   const [tiposReporte, setTiposReporte] = useState([]);
   const [estatusList, setEstatusList] = useState([]);
   const [especies, setEspecies] = useState([]);
+  const [speciesSuggestions, setSpeciesSuggestions] = useState([]);
   const [razas, setRazas] = useState([]);
+  const [breedSuggestions, setBreedSuggestions] = useState([]);
   const [sexos, setSexos] = useState([]);
   const [marcas, setMarcas] = useState([]);
   const [canales, setCanales] = useState([]);
@@ -121,7 +237,11 @@ export default function PublishReportScreen({ navigation, route }) {
   // Mascota
   const [nombreMascota, setNombreMascota] = useState('');
   const [idEspecie, setIdEspecie] = useState(null);
+  const [especiePersonalizada, setEspeciePersonalizada] = useState('');
+  const [especieConfirmada, setEspecieConfirmada] = useState('');
   const [idRaza, setIdRaza] = useState(null);
+  const [razaPersonalizada, setRazaPersonalizada] = useState('');
+  const [razaConfirmada, setRazaConfirmada] = useState('');
   const [idSexo, setIdSexo] = useState(null);
   const [colorPrimario, setColorPrimario] = useState('');
   const [tamano, setTamano] = useState('');
@@ -138,11 +258,163 @@ export default function PublishReportScreen({ navigation, route }) {
   const [idTipoReporte, setIdTipoReporte] = useState(null);
   const [idEstatus, setIdEstatus] = useState(null);
   const [idMarcaDistintiva, setIdMarcaDistintiva] = useState(null);
+  const [marcaPersonalizada, setMarcaPersonalizada] = useState('');
+  const [marcaConfirmada, setMarcaConfirmada] = useState('');
   const [fechaExtravio, setFechaExtravio] = useState('');
   const [fechaAvistamiento, setFechaAvistamiento] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [loadingEditData, setLoadingEditData] = useState(isEdit);
+  const [editContext, setEditContext] = useState(null);
+
+  const especiesConOtro = useMemo(() => [
+    ...mergeOptions(especies, speciesSuggestions, { id: OTHER_SPECIES_ID, descripcion: 'Otro' }),
+  ], [especies, speciesSuggestions]);
+
+  const razasConOtro = useMemo(() => [
+    ...mergeOptions(razas, breedSuggestions, { id: OTHER_BREED_ID, descripcion: 'Otro' }),
+  ], [razas, breedSuggestions]);
+
+  const marcasConOtro = useMemo(() => [
+    ...mergeOptions(marcas, [], { id: OTHER_MARK_ID, descripcion: 'Otro' }),
+  ], [marcas]);
+
+  const handleSpeciesChange = useCallback((value, description) => {
+    setIdEspecie(value);
+    if (String(value).startsWith('custom-')) {
+      setEspeciePersonalizada(description || '');
+      setEspecieConfirmada(description || '');
+      return;
+    }
+    if (value !== OTHER_SPECIES_ID) {
+      setEspeciePersonalizada('');
+      setEspecieConfirmada('');
+    }
+  }, []);
+
+  const handleConfirmCustomSpecies = useCallback(() => {
+    const trimmed = especiePersonalizada.trim();
+    if (!trimmed) {
+      setError('Escribe la especie antes de confirmarla.');
+      return;
+    }
+    setError(null);
+    setEspecieConfirmada(trimmed);
+  }, [especiePersonalizada]);
+
+  const handleBreedChange = useCallback((value, description) => {
+    setIdRaza(value);
+    if (String(value).startsWith('custom-')) {
+      setRazaPersonalizada(description || '');
+      setRazaConfirmada(description || '');
+      return;
+    }
+    if (value !== OTHER_BREED_ID) {
+      setRazaPersonalizada('');
+      setRazaConfirmada('');
+    }
+  }, []);
+
+  const handleConfirmCustomBreed = useCallback(() => {
+    const trimmed = razaPersonalizada.trim();
+    if (!trimmed) {
+      setError('Escribe la raza antes de confirmarla.');
+      return;
+    }
+    setError(null);
+    setRazaConfirmada(trimmed);
+  }, [razaPersonalizada]);
+
+  const handleMarkChange = useCallback((value) => {
+    setIdMarcaDistintiva(value);
+    if (value !== OTHER_MARK_ID) {
+      setMarcaPersonalizada('');
+      setMarcaConfirmada('');
+    }
+  }, []);
+
+  const handleConfirmCustomMark = useCallback(() => {
+    const trimmed = marcaPersonalizada.trim();
+    if (!trimmed) {
+      setError('Escribe la marca distintiva antes de confirmarla.');
+      return;
+    }
+    setError(null);
+    setMarcaConfirmada(trimmed);
+  }, [marcaPersonalizada]);
+
+  function getSelectedOption(options, value) {
+    return options.find(option => String(option.id) === String(value));
+  }
+
+  useEffect(() => {
+    if (!isEdit || !route?.params?.reportId || loadingCatalogos) return;
+    let mounted = true;
+    setLoadingEditData(true);
+
+    Promise.all([
+      api.getReport(route.params.reportId),
+      api.getCoordenadas().catch(() => ({ data: [] })),
+      getStoredMap(CUSTOM_SPECIES_STORAGE_KEY),
+      getStoredMap(CUSTOM_BREEDS_STORAGE_KEY),
+      getStoredMap(CUSTOM_MARKS_STORAGE_KEY),
+      getStoredMap(REPORT_PHOTOS_STORAGE_KEY),
+      getStoredMap(REPORT_ADDRESS_STORAGE_KEY),
+      getStoredMap(REPORT_CONTACT_METHOD_STORAGE_KEY),
+    ])
+      .then(([reportRes, coordenadasRes, speciesMap, breedMap, markMap, photoMap, addressMap, contactMethodMap]) => {
+        if (!mounted) return;
+        const dto = reportRes.data || {};
+        const coord = (coordenadasRes.data || []).find(item => String(item.idReporte) === String(route.params.reportId));
+        const speciesText = dto.descripcionEspecie || speciesMap[String(dto.idReporteMascota)] || '';
+        const breedText = dto.descripcionRaza || breedMap[String(dto.idReporteMascota)] || '';
+        const markText = dto.descripcionMarcaDistintiva || markMap[String(dto.idReporteMascota)] || '';
+        const speciesMatch = especies.find(option => normalizeText(option.descripcion) === normalizeText(speciesText));
+        const breedMatch = razas.find(option => normalizeText(option.descripcion) === normalizeText(breedText));
+        const markMatch = marcas.find(option => normalizeText(option.descripcion) === normalizeText(markText));
+        const channelMatch = canales.find(option => String(option.id) === String(dto.idCanalPreferencia) || normalizeText(option.descripcion) === normalizeText(dto.descripcionCanalPreferencia || dto.nombreCanalPreferencia || ''));
+
+        setNombreMascota(dto.nombreMascota || '');
+        setIdEspecie(speciesMatch ? speciesMatch.id : (speciesText ? OTHER_SPECIES_ID : null));
+        setEspeciePersonalizada(speciesMatch ? '' : speciesText);
+        setEspecieConfirmada(speciesMatch ? '' : speciesText);
+        setIdRaza(breedMatch ? breedMatch.id : (breedText ? OTHER_BREED_ID : null));
+        setRazaPersonalizada(breedMatch ? '' : breedText);
+        setRazaConfirmada(breedMatch ? '' : breedText);
+        setIdSexo(dto.idSexo || null);
+        setColorPrimario(dto.colorPrimario || '');
+        setTamano(dto.tamano || '');
+        setEdad(dto.edad != null ? String(dto.edad) : '');
+        setDetallesExtra(dto.detallesExtra || '');
+        setNombreContacto(dto.nombresContacto || '');
+        setCorreo(dto.correoContacto || '');
+        setTelefono(dto.telefonoContacto ? String(dto.telefonoContacto) : '');
+        setIdCanal(channelMatch ? channelMatch.id : (dto.idCanalPreferencia || null));
+        setIdTipoReporte(dto.idTipoReporte || null);
+        setIdEstatus(dto.idEstatus || null);
+        setIdMarcaDistintiva(markMatch ? markMatch.id : (markText ? OTHER_MARK_ID : null));
+        setMarcaPersonalizada(markMatch ? '' : markText);
+        setMarcaConfirmada(markMatch ? '' : markText);
+        setFechaExtravio(dto.fechaExtravio || '');
+        setFechaAvistamiento(dto.fechaAvistamiento || '');
+        setCoordLat(coord?.ubicacionLat ?? null);
+        setCoordLng(coord?.ubicacionLon ?? null);
+        setIdComuna(coord?.idComuna ?? null);
+        setDireccion(dto.direccion || addressMap[String(dto.idReporteMascota)] || coord?.direccion || '');
+        setFotos((photoMap[String(dto.idReporteMascota)] || []).map(uri => ({ uri })));
+        setEditContext({
+          reportId: dto.idReporteMascota,
+          mascotaId: dto.idMascota,
+          contactoId: dto.idContacto,
+          coordenadaId: coord?.idCoordenada || coord?.id,
+        });
+      })
+      .catch(err => setError(err?.response?.data?.message || err?.message || 'Error cargando el reporte para edición.'))
+      .finally(() => mounted && setLoadingEditData(false));
+
+    return () => { mounted = false; };
+  }, [isEdit, route?.params?.reportId, loadingCatalogos, especies, razas, marcas, canales]);
 
   useEffect(() => {
     Promise.all([
@@ -154,8 +426,10 @@ export default function PublishReportScreen({ navigation, route }) {
       api.getMarcasDistintivas(),
       api.getCanalesPreferencia(),
       api.getComunas().catch(() => ({ data: [] })),
+      getSuggestionList(SPECIES_SUGGESTIONS_STORAGE_KEY),
+      getSuggestionList(BREED_SUGGESTIONS_STORAGE_KEY),
     ])
-      .then(([tipos, estatus, esp, rz, sx, marc, can, com]) => {
+      .then(([tipos, estatus, esp, rz, sx, marc, can, com, speciesSugs, breedSugs]) => {
         setTiposReporte(tipos.data);
         setEstatusList(estatus.data);
         setEspecies(esp.data);
@@ -163,6 +437,8 @@ export default function PublishReportScreen({ navigation, route }) {
         setSexos(sx.data);
         setMarcas(marc.data);
         setCanales(can.data);
+        setSpeciesSuggestions(speciesSugs || []);
+        setBreedSuggestions(breedSugs || []);
         setComunas((com.data || []).map(c => ({ id: c.idComuna, descripcion: c.nombreComuna })));
       })
       .catch(err => {
@@ -176,8 +452,15 @@ export default function PublishReportScreen({ navigation, route }) {
     if (!nombreMascota.trim()) return setError('El nombre de la mascota es requerido.');
     if (!idTipoReporte) return setError('Selecciona el tipo de reporte.');
     if (!idEstatus) return setError('Selecciona el estado del reporte.');
+    const selectedSpecies = getSelectedOption(especiesConOtro, idEspecie);
+    const selectedBreed = getSelectedOption(razasConOtro, idRaza);
+    const customSpecies = idEspecie === OTHER_SPECIES_ID ? especieConfirmada.trim() : (String(idEspecie).startsWith('custom-') ? (selectedSpecies?.descripcion || '').trim() : '');
+    if (idEspecie === OTHER_SPECIES_ID && !customSpecies) return setError('Confirma la especie personalizada antes de publicar.');
+    const customBreed = idRaza === OTHER_BREED_ID ? razaConfirmada.trim() : (String(idRaza).startsWith('custom-') ? (selectedBreed?.descripcion || '').trim() : '');
+    if (idRaza === OTHER_BREED_ID && !customBreed) return setError('Confirma la raza personalizada antes de publicar.');
+    const customMark = idMarcaDistintiva === OTHER_MARK_ID ? marcaConfirmada.trim() : '';
+    if (idMarcaDistintiva === OTHER_MARK_ID && !customMark) return setError('Confirma la marca distintiva antes de publicar.');
     if (!nombreContacto.trim()) return setError('El nombre de contacto es requerido.');
-    if (!correo.trim()) return setError('El correo de contacto es requerido.');
     if (!idCanal) return setError('Selecciona el canal de preferencia.');
     if (coordLat == null) return setError('Debes marcar una ubicación en el mapa.');
     if (!idComuna) return setError('Selecciona la comuna para la ubicación marcada.');
@@ -186,49 +469,142 @@ export default function PublishReportScreen({ navigation, route }) {
     setSubmitting(true);
 
     try {
-      const mascotaRes = await api.createMascota({
+      const mascotaPayload = {
         nombreMascota: nombreMascota.trim(),
-        idEspecie: idEspecie || null,
-        idRaza: idRaza || null,
+        idEspecie: (idEspecie === OTHER_SPECIES_ID || String(idEspecie).startsWith('custom-')) ? null : idEspecie || null,
+        idRaza: (idRaza === OTHER_BREED_ID || String(idRaza).startsWith('custom-')) ? null : idRaza || null,
         idSexo: idSexo || null,
         colorPrimario: colorPrimario.trim() || null,
         tamano: tamano.trim() || null,
         edad: edad ? parseInt(edad, 10) : null,
         detallesExtra: detallesExtra.trim() || null,
-      });
-      const idMascota = mascotaRes.data.idMascota;
+      };
 
-      const contactoRes = await api.createContacto({
+      if (customSpecies) {
+        mascotaPayload.descripcionEspecie = customSpecies;
+      }
+      if (customBreed) {
+        mascotaPayload.descripcionRaza = customBreed;
+      }
+
+      const contactoPayload = {
         nombres: nombreContacto.trim(),
-        correo: correo.trim(),
+        correo: correo.trim() || null,
         telefono: telefono ? parseInt(telefono, 10) : null,
         idCanalPreferencia: idCanal,
-      });
-      const idContacto = contactoRes.data.idContacto;
+      };
 
-      const reporteRes = await api.createReport({
-        idTipoReporte,
-        idEstatus,
-        idMascota,
-        idContacto,
-        idMarcaDistintiva: idMarcaDistintiva || null,
-        fechaExtravio: fechaExtravio || null,
-        fechaAvistamiento: fechaAvistamiento || null,
-        fechaReporte: new Date().toISOString(),
-      });
+      const selectedContactMethod = canales.find(item => String(item.id) === String(idCanal))?.descripcion || '';
 
-      const idReporte = reporteRes.data.idReporteMascota;
-      addMyReportId(idReporte);
+      if (isEdit && editContext?.reportId) {
+        const reportId = editContext.reportId;
+        const mascotaId = editContext.mascotaId;
+        const contactoId = editContext.contactoId;
 
-      // Guardar coordenada si el usuario marcó una ubicación
-      if (coordLat != null && coordLng != null && idComuna) {
-        await api.createCoordenada({
-          ubicacionLat: coordLat,
-          ubicacionLon: coordLng,
-          idReporte: idReporte,
-          idComuna,
-          direccion: direccion.trim() || null,
-        }).catch(err => console.warn('Coordenada no guardada:', err?.message));
+        if (mascotaId) await api.updateMascota(mascotaId, mascotaPayload);
+        if (contactoId) await api.updateContacto(contactoId, contactoPayload);
+
+        await api.updateReport(reportId, {
+          idTipoReporte,
+          idEstatus,
+          idMascota: mascotaId || editContext.mascotaId || null,
+          idContacto: contactoId || editContext.contactoId || null,
+          idMarcaDistintiva: (idMarcaDistintiva === OTHER_MARK_ID || String(idMarcaDistintiva).startsWith('custom-')) ? null : idMarcaDistintiva || null,
+          fechaExtravio: fechaExtravio || null,
+          fechaAvistamiento: fechaAvistamiento || null,
+          fechaReporte: new Date().toISOString(),
+        });
+
+        if (customSpecies) {
+          await saveCustomSpeciesForReport(reportId, customSpecies);
+          await saveSuggestion(SPECIES_SUGGESTIONS_STORAGE_KEY, customSpecies);
+        } else {
+          await removeStoredMapEntry(CUSTOM_SPECIES_STORAGE_KEY, reportId);
+        }
+        if (customBreed) {
+          await saveStoredMap(CUSTOM_BREEDS_STORAGE_KEY, reportId, customBreed);
+          await saveSuggestion(BREED_SUGGESTIONS_STORAGE_KEY, customBreed);
+        } else {
+          await removeStoredMapEntry(CUSTOM_BREEDS_STORAGE_KEY, reportId);
+        }
+        if (customMark) {
+          await saveStoredMap(CUSTOM_MARKS_STORAGE_KEY, reportId, customMark);
+        } else {
+          await removeStoredMapEntry(CUSTOM_MARKS_STORAGE_KEY, reportId);
+        }
+        await saveStoredMap(REPORT_PHOTOS_STORAGE_KEY, reportId, fotos.map(img => img.uri));
+        await saveStoredMap(REPORT_ADDRESS_STORAGE_KEY, reportId, direccion.trim() || null);
+        await saveStoredMap(REPORT_CONTACT_METHOD_STORAGE_KEY, reportId, selectedContactMethod);
+
+        if (editContext.coordenadaId) {
+          await api.updateCoordenada(editContext.coordenadaId, {
+            ubicacionLat: coordLat,
+            ubicacionLon: coordLng,
+            idComuna,
+            direccion: direccion.trim() || null,
+          }).catch(async () => {
+            await api.createCoordenada({
+              ubicacionLat: coordLat,
+              ubicacionLon: coordLng,
+              idReporte: reportId,
+              idComuna,
+              direccion: direccion.trim() || null,
+            });
+          });
+        } else {
+          await api.createCoordenada({
+            ubicacionLat: coordLat,
+            ubicacionLon: coordLng,
+            idReporte: reportId,
+            idComuna,
+            direccion: direccion.trim() || null,
+          }).catch(err => console.warn('Coordenada no guardada:', err?.message));
+        }
+      } else {
+        const mascotaRes = await api.createMascota(mascotaPayload);
+        const idMascota = mascotaRes.data.idMascota;
+
+        const contactoRes = await api.createContacto(contactoPayload);
+        const idContacto = contactoRes.data.idContacto;
+
+        const reporteRes = await api.createReport({
+          idTipoReporte,
+          idEstatus,
+          idMascota,
+          idContacto,
+          idMarcaDistintiva: (idMarcaDistintiva === OTHER_MARK_ID || String(idMarcaDistintiva).startsWith('custom-')) ? null : idMarcaDistintiva || null,
+          fechaExtravio: fechaExtravio || null,
+          fechaAvistamiento: fechaAvistamiento || null,
+          fechaReporte: new Date().toISOString(),
+        });
+
+        const idReporte = reporteRes.data.idReporteMascota;
+        addMyReportId(idReporte);
+        if (customSpecies) {
+          await saveCustomSpeciesForReport(idReporte, customSpecies);
+          await saveSuggestion(SPECIES_SUGGESTIONS_STORAGE_KEY, customSpecies);
+        }
+        if (customBreed) {
+          await saveStoredMap(CUSTOM_BREEDS_STORAGE_KEY, idReporte, customBreed);
+          await saveSuggestion(BREED_SUGGESTIONS_STORAGE_KEY, customBreed);
+        }
+        if (customMark) {
+          await saveStoredMap(CUSTOM_MARKS_STORAGE_KEY, idReporte, customMark);
+        }
+        await saveStoredMap(REPORT_PHOTOS_STORAGE_KEY, idReporte, fotos.map(img => img.uri));
+        await saveStoredMap(REPORT_ADDRESS_STORAGE_KEY, idReporte, direccion.trim() || null);
+        await saveStoredMap(REPORT_CONTACT_METHOD_STORAGE_KEY, idReporte, selectedContactMethod);
+
+        // Guardar coordenada si el usuario marcó una ubicación
+        if (coordLat != null && coordLng != null && idComuna) {
+          await api.createCoordenada({
+            ubicacionLat: coordLat,
+            ubicacionLon: coordLng,
+            idReporte: idReporte,
+            idComuna,
+            direccion: direccion.trim() || null,
+          }).catch(err => console.warn('Coordenada no guardada:', err?.message));
+        }
       }
 
       navigation.navigate('Dashboard');
@@ -240,12 +616,12 @@ export default function PublishReportScreen({ navigation, route }) {
     }
   };
 
-  if (loadingCatalogos) {
+  if (loadingCatalogos || loadingEditData) {
     return (
       <ScreenShell title={isEdit ? 'Editar reporte' : 'Publicar reporte'}>
         <View style={styles.centered}>
           <ActivityIndicator color={COLORS.secondary} size="large" />
-          <Text style={styles.loadingText}>Cargando formulario...</Text>
+          <Text style={styles.loadingText}>{isEdit ? 'Cargando reporte para editar...' : 'Cargando formulario...'}</Text>
         </View>
       </ScreenShell>
     );
@@ -290,11 +666,39 @@ export default function PublishReportScreen({ navigation, route }) {
         </Field>
 
         <Field label="Especie">
-          <SelectPill options={especies} value={idEspecie} onChange={setIdEspecie} />
+          <SelectPill options={especiesConOtro} value={idEspecie} onChange={handleSpeciesChange} />
+          {idEspecie === OTHER_SPECIES_ID && (
+            <View style={styles.customSpeciesBox}>
+              <TextInput
+                placeholder="Escribe la especie"
+                placeholderTextColor={COLORS.muted}
+                style={[INPUT_STYLE(COLORS), styles.customSpeciesInput]}
+                value={especiePersonalizada}
+                onChangeText={setEspeciePersonalizada}
+                autoCapitalize="words"
+              />
+              <PrimaryButton title="Confirmar" onPress={handleConfirmCustomSpecies} style={styles.customSpeciesButton} />
+            </View>
+          )}
+          {especieConfirmada ? <Text style={styles.confirmedSpecies}>Especie guardada: {especieConfirmada}</Text> : null}
         </Field>
 
         <Field label="Raza">
-          <SelectPill options={razas} value={idRaza} onChange={setIdRaza} />
+          <SelectPill options={razasConOtro} value={idRaza} onChange={handleBreedChange} />
+          {idRaza === OTHER_BREED_ID && (
+            <View style={styles.customSpeciesBox}>
+              <TextInput
+                placeholder="Escribe la raza"
+                placeholderTextColor={COLORS.muted}
+                style={[INPUT_STYLE(COLORS), styles.customSpeciesInput]}
+                value={razaPersonalizada}
+                onChangeText={setRazaPersonalizada}
+                autoCapitalize="words"
+              />
+              <PrimaryButton title="Confirmar" onPress={handleConfirmCustomBreed} style={styles.customSpeciesButton} />
+            </View>
+          )}
+          {razaConfirmada ? <Text style={styles.confirmedSpecies}>Raza guardada: {razaConfirmada}</Text> : null}
         </Field>
 
         <Field label="Sexo">
@@ -302,7 +706,21 @@ export default function PublishReportScreen({ navigation, route }) {
         </Field>
 
         <Field label="Marca distintiva">
-          <SelectPill options={marcas} value={idMarcaDistintiva} onChange={setIdMarcaDistintiva} />
+          <SelectPill options={marcasConOtro} value={idMarcaDistintiva} onChange={handleMarkChange} />
+          {idMarcaDistintiva === OTHER_MARK_ID && (
+            <View style={styles.customSpeciesBox}>
+              <TextInput
+                placeholder="Escribe la marca distintiva"
+                placeholderTextColor={COLORS.muted}
+                style={[INPUT_STYLE(COLORS), styles.customSpeciesInput]}
+                value={marcaPersonalizada}
+                onChangeText={setMarcaPersonalizada}
+                autoCapitalize="words"
+              />
+              <PrimaryButton title="Confirmar" onPress={handleConfirmCustomMark} style={styles.customSpeciesButton} />
+            </View>
+          )}
+          {marcaConfirmada ? <Text style={styles.confirmedSpecies}>Marca guardada: {marcaConfirmada}</Text> : null}
         </Field>
 
         <Field label="Color principal">
@@ -516,6 +934,10 @@ const styles = StyleSheet.create({
   pillActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
   pillText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
   pillTextActive: { color: '#fff' },
+  customSpeciesBox: { marginTop: 12, gap: 10 },
+  customSpeciesInput: { width: '100%' },
+  customSpeciesButton: { alignSelf: 'flex-start', minWidth: 150 },
+  confirmedSpecies: { marginTop: 8, color: COLORS.secondary, fontSize: 12, fontWeight: '700' },
   errorBanner: {
     padding: 12,
     borderRadius: 16,

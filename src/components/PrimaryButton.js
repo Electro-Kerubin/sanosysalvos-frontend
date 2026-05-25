@@ -2,10 +2,14 @@ import React from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
 import { COLORS } from '../styles/theme';
 
-export default function PrimaryButton({ title, onPress, variant = 'primary', style, textStyle }) {
+export default function PrimaryButton({ title, onPress, variant = 'primary', style, textStyle, disabled = false }) {
   const isGhost = variant === 'ghost';
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.button, isGhost && styles.ghost, pressed && styles.pressed, style]}>
+    <Pressable
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
+      style={({ pressed }) => [styles.button, isGhost && styles.ghost, pressed && !disabled && styles.pressed, disabled && styles.disabled, style]}
+    >
       <Text style={[styles.text, isGhost && styles.ghostText, textStyle]}>{title}</Text>
     </Pressable>
   );
@@ -35,6 +39,7 @@ const styles = StyleSheet.create({
     elevation: 0
   },
   pressed: { transform: [{ scale: 0.99 }], opacity: 0.92 },
+  disabled: { opacity: 0.6 },
   text: { color: '#fff', fontSize: 15, fontWeight: '800', letterSpacing: 0.1 },
   ghostText: { color: COLORS.text }
 });
