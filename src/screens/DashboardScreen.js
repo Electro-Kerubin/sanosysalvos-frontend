@@ -1,10 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions, Pressable, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import ScreenShell from '../components/ScreenShell';
 import LogoBanner from '../components/LogoBanner';
 import ResponsiveNav from '../components/ResponsiveNav';
 import ReportCard from '../components/ReportCard';
+import DashboardMap from '../components/DashboardMap';
 import PrimaryButton from '../components/PrimaryButton';
 import ConfirmModal from '../components/ConfirmModal';
 import { COLORS } from '../styles/theme';
@@ -56,10 +56,6 @@ export default function DashboardScreen({ navigation }) {
   const [page, setPage] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
-  const [hoveredPinId, setHoveredPinId] = useState(null);
-
-  // Ubicación del usuario (mock)
-  const userLocation = { lat: -12.0464, lng: -77.0428 };
 
   const handleLogout = () => {
     setLogoutModalVisible(true);
@@ -68,27 +64,6 @@ export default function DashboardScreen({ navigation }) {
   const confirmLogout = () => {
     setLogoutModalVisible(false);
     navigation.navigate('Logout');
-  };
-
-  // Calcular distancia usando la fórmula de Haversine
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radio de la Tierra en km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  // Formatear fecha
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
   };
 
   const [reports, setReports] = useState([]);
@@ -166,30 +141,10 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.sectionTitle}>Mapa de reportes</Text>
             <Text style={styles.sectionHint}>Verde = encontrado, rojo = búsqueda</Text>
           </View>
-          <View style={styles.mapCard}>
-            <View style={styles.mapArea}>
-              {reportsOrdered.map((report, index) => (
-                <View key={report.id} style={[styles.pin, report.status === 'Encontrado' ? styles.pinFound : styles.pinSearching, { left: `${12 + (index % 4) * 21}%`, top: `${18 + (index % 3) * 20}%` }]}>
-                  <Pressable
-                    onPress={() => navigation.navigate('ReportDetail', { reportId: report.id })}
-                    onMouseEnter={() => setHoveredPinId(report.id)}
-                    onMouseLeave={() => setHoveredPinId(null)}
-                    style={styles.pinPressable}
-                  >
-                    <Ionicons name="location-sharp" size={20} color="#fff" />
-                  </Pressable>
-                  {hoveredPinId === report.id && (
-                    <View style={styles.tooltip}>
-                      <Text style={styles.tooltipText}>{formatDate(report.createdAt)}</Text>
-                      <Text style={styles.tooltipText}>
-                        {calculateDistance(userLocation.lat, userLocation.lng, report.lat, report.lng).toFixed(1)} km
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-          </View>
+          <DashboardMap
+            reports={reportsOrdered}
+            onReportPress={id => navigation.navigate('ReportDetail', { reportId: id })}
+          />
         </View>
 
         <View style={styles.section}>
@@ -256,62 +211,6 @@ const styles = StyleSheet.create({
   sectionTitleRow: { gap: 6, marginBottom: 10 },
   sectionTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
   sectionHint: { color: COLORS.muted, fontSize: 12 },
-  mapCard: {
-    height: 320,
-    borderRadius: 24,
-    overflow: 'hidden',
-    backgroundColor: '#e8f2ec',
-    borderWidth: 1,
-    borderColor: COLORS.border
-  },
-  mapArea: {
-    flex: 1,
-    backgroundColor: '#d9eadf',
-    position: 'relative',
-    overflow: 'hidden'
-  },
-  pin: {
-    position: 'absolute',
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3
-  },
-  pinFound: { backgroundColor: COLORS.success },
-  pinSearching: { backgroundColor: COLORS.accent },
-  pinPressable: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  tooltip: {
-    position: 'absolute',
-    bottom: 50,
-    left: -30,
-    backgroundColor: COLORS.text,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    minWidth: 80,
-    alignItems: 'center',
-    gap: 2,
-    zIndex: 10
-  },
-  tooltipText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 14
-  },
   pagination: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   pageChip: {
     minWidth: 36,
