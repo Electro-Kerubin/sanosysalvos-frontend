@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions, Pressable, ActivityIndicator } from 'react-native';
 import ScreenShell from '../components/ScreenShell';
 import LogoBanner from '../components/LogoBanner';
@@ -9,6 +10,15 @@ import PrimaryButton from '../components/PrimaryButton';
 import ConfirmModal from '../components/ConfirmModal';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
+
+function getEmailFromToken() {
+  try {
+    const token = typeof window !== 'undefined' ? window.localStorage?.getItem('token') : null;
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.sub || payload.email || null;
+  } catch (_) { return null; }
+}
 
 // Convierte el DTO del backend al formato que usan los componentes de UI
 function mapReporteDTO(dto, userEmail) {
@@ -72,40 +82,43 @@ export default function DashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-    Promise.all([
-      api.getReports(),
-      api.getCoordenadas().catch(() => ({ data: [] })),
-      api.getProfile().catch(() => ({ data: null })),
-    ])
-      .then(([resReportes, resCoordenadas, resPerfil]) => {
-        if (!mounted) return;
-        const data = resReportes?.data;
-        const items = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : null);
-        if (!items) { console.warn('Formato de respuesta inesperado:', data); return; }
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      setLoading(true);
+      setError(null);
 
-        const coordMap = {};
-        (resCoordenadas?.data || []).forEach(c => { coordMap[c.idReporte] = c; });
+      const userEmail = getEmailFromToken();
 
-        const userEmail = resPerfil?.data?.email || resPerfil?.data?.correo || null;
+      Promise.all([
+        api.getReports(),
+        api.getCoordenadas().catch(() => ({ data: [] })),
+      ])
+        .then(([resReportes, resCoordenadas]) => {
+          if (!mounted) return;
+          const data = resReportes?.data;
+          const items = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : null);
+          if (!items) { console.warn('Formato de respuesta inesperado:', data); return; }
 
-        setReports(items.map(dto => {
-          const mapped = mapReporteDTO(dto, userEmail);
-          const coord = coordMap[mapped.id];
-          if (coord) { mapped.lat = coord.ubicacionLat; mapped.lng = coord.ubicacionLon; }
-          return mapped;
-        }));
-      })
-      .catch((err) => {
-        if (!mounted) return;
-        setError(err?.response?.data?.message || err?.message || 'Error al cargar reportes');
-      })
-      .finally(() => mounted && setLoading(false));
+          const coordMap = {};
+          (resCoordenadas?.data || []).forEach(c => { coordMap[c.idReporte] = c; });
 
-    return () => { mounted = false; };
-  }, []);
+          setReports(items.map(dto => {
+            const mapped = mapReporteDTO(dto, userEmail);
+            const coord = coordMap[mapped.id];
+            if (coord) { mapped.lat = coord.ubicacionLat; mapped.lng = coord.ubicacionLon; }
+            return mapped;
+          }));
+        })
+        .catch((err) => {
+          if (!mounted) return;
+          setError(err?.response?.data?.message || err?.message || 'Error al cargar reportes');
+        })
+        .finally(() => mounted && setLoading(false));
+
+      return () => { mounted = false; };
+    }, [])
+  );
 
   const reportsOrdered = useMemo(() => {
     return [...reports].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
