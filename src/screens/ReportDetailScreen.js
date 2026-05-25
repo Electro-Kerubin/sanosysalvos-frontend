@@ -108,10 +108,27 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [coincidencias, setCoincidencias] = useState([]);
   const [reportsMap, setReportsMap] = useState({});
   const [nearbyReports, setNearbyReports] = useState([]);
+  const [syncingCoincidencias, setSyncingCoincidencias] = useState(false);
+
+  const reloadCoincidencias = React.useCallback(() => {
+    setSyncingCoincidencias(true);
+    api.syncCoincidencias(reportId)
+      .catch(() => {})
+      .finally(() => {
+        api.getCoincidenciasPorReporte(reportId)
+          .then(res => {
+            const lista = Array.isArray(res.data) ? res.data : [];
+            setCoincidencias(lista.filter(c => Number(c.puntajeTotal) >= SCORE_MIN));
+          })
+          .catch(() => {})
+          .finally(() => setSyncingCoincidencias(false));
+      });
+  }, [reportId]);
 
   useEffect(() => {
     if (!reportId) { setError('ID de reporte no especificado.'); setLoading(false); return; }
     setLoading(true);
+    api.syncCoincidencias(reportId).catch(() => {});
 
     Promise.all([
       api.getReport(reportId),
@@ -320,7 +337,14 @@ export default function ReportDetailScreen({ navigation, route }) {
               </View>
 
               {/* ── Coincidencias ─────────────────────────────────────── */}
-              <Text style={styles.sectionLabel}>Posibles coincidencias</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text style={styles.sectionLabel}>Posibles coincidencias</Text>
+                <Pressable onPress={reloadCoincidencias} disabled={syncingCoincidencias} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: COLORS.soft, borderWidth: 1, borderColor: COLORS.border }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.secondary }}>
+                    {syncingCoincidencias ? 'Buscando...' : '↻ Actualizar'}
+                  </Text>
+                </Pressable>
+              </View>
               {coincidencias.length === 0 ? (
                 <Text style={styles.noMatch}>El motor aún no encontró coincidencias con puntaje ≥ {SCORE_MIN} pts.</Text>
               ) : (
