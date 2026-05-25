@@ -9,8 +9,8 @@
     "build:web": "expo build:web"
   },
   "dependencies": {
-    "@expo/vector-icons": "^14.0.0",
-    "@react-native-async-storage/async-storage": "^1.19.1",
+    "@expo/vector-icons": "^13.0.0",
+    "@react-native-async-storage/async-storage": "1.18.2",
     "@react-navigation/native": "^6.1.6",
     "@react-navigation/stack": "^6.3.16",
     "axios": "^1.4.0",
@@ -19,11 +19,11 @@
     "expo-status-bar": "~1.6.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-native": "0.72.3",
-    "react-native-gesture-handler": "~2.10.0",
+    "react-native": "0.72.10",
+    "react-native-gesture-handler": "~2.12.0",
     "react-native-reanimated": "~3.3.0",
     "react-native-safe-area-context": "4.6.3",
-    "react-native-screens": "^3.22.0",
+    "react-native-screens": "~3.22.0",
     "react-native-web": "~0.19.6"
   },
   "devDependencies": {
