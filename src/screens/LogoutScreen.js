@@ -16,7 +16,7 @@ export default function LogoutScreen({ navigation }) {
       <View style={styles.card}>
         <Image source={require('../../assets/images/logout.png')} style={styles.image} resizeMode="contain" />
         <Text style={styles.message}>Te esperamos la próxima vez</Text>
-        <PrimaryButton title="Ir a Inicio" onPress={handleGoHome} />
+        <PrimaryButton title="Ir a Inicio" onPress={handleGoHome} style={styles.button} />
       </View>
     </ScreenShell>
   );
@@ -24,21 +24,23 @@ export default function LogoutScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 24,
+    marginTop: 8,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 28,
+    borderRadius: 30,
     padding: 18,
-    gap: 16,
+    gap: 14,
     alignItems: 'center'
   },
   image: {
-    width: '88%',
+    width: '100%',
     maxWidth: 420,
-    height: 240,
+    height: 250,
     borderRadius: 24,
     alignSelf: 'center'
   },
-  message: { fontSize: 18, fontWeight: '800', color: COLORS.text, textAlign: 'center' }
+  message: { fontSize: 22, fontWeight: '900', color: COLORS.text, textAlign: 'center', letterSpacing: -0.2 },
+  support: { fontSize: 14, lineHeight: 21, color: COLORS.muted, textAlign: 'center' },
+  button: { width: '100%' }
 });

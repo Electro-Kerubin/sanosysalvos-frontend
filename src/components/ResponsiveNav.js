@@ -49,18 +49,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border
   },
-  navRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  navRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' },
   navItem: {
-    minHeight: 42,
-    paddingHorizontal: 12,
-    borderRadius: 14,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: 16,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 1
   },
   navText: { fontSize: 13, fontWeight: '700', color: COLORS.text },
-  pressed: { opacity: 0.92 }
+  pressed: { opacity: 0.9, transform: [{ translateY: 1 }] }
 });

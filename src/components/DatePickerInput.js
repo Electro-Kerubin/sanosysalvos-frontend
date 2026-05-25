@@ -21,6 +21,10 @@ export default function DatePickerInput({ value, onChange, placeholder }) {
         outline: 'none',
         cursor: 'pointer',
         fontFamily: 'inherit',
+        boxShadow: '0 1px 2px rgba(20, 32, 51, 0.04)',
+        appearance: 'none',
+        WebkitAppearance: 'none',
+        MozAppearance: 'none',
       }}
     />
   );

@@ -42,7 +42,7 @@ export default function ImagePickerInput({ images = [], onChange }) {
               <img
                 src={img.uri}
                 alt={img.name}
-                style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 12, display: 'block' }}
+                style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 18, display: 'block' }}
               />
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>Pendiente</Text>
@@ -61,37 +61,37 @@ export default function ImagePickerInput({ images = [], onChange }) {
 const styles = StyleSheet.create({
   container: { gap: 10 },
   addButton: {
-    minHeight: 72,
-    borderRadius: 16,
+    minHeight: 84,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: COLORS.border,
     borderStyle: 'dashed',
-    backgroundColor: COLORS.soft,
+    backgroundColor: '#faf7f1',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    padding: 12,
+    gap: 5,
+    padding: 14,
     cursor: 'pointer',
   },
   addIcon: { fontSize: 22 },
-  addText: { fontSize: 14, fontWeight: '700', color: COLORS.secondary },
-  addHint: { fontSize: 11, color: COLORS.muted, textAlign: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  thumbWrap: { position: 'relative', width: 88 },
+  addText: { fontSize: 14, fontWeight: '800', color: COLORS.secondary },
+  addHint: { fontSize: 11, color: COLORS.muted, textAlign: 'center', lineHeight: 16 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  thumbWrap: { position: 'relative', width: 96 },
   badge: {
     position: 'absolute',
-    bottom: 4,
-    left: 4,
+    bottom: 6,
+    left: 6,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
   badgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
   removeBtn: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 6,
+    right: 6,
     width: 22,
     height: 22,
     borderRadius: 11,

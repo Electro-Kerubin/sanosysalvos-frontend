@@ -13,25 +13,28 @@ export default function PrimaryButton({ title, onPress, variant = 'primary', sty
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
-    borderRadius: 16,
+    minHeight: 50,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
   },
   ghost: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    shadowOpacity: 0
+    shadowOpacity: 0,
+    elevation: 0
   },
-  pressed: { transform: [{ scale: 0.99 }], opacity: 0.94 },
-  text: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  pressed: { transform: [{ scale: 0.99 }], opacity: 0.92 },
+  text: { color: '#fff', fontSize: 15, fontWeight: '800', letterSpacing: 0.1 },
   ghostText: { color: COLORS.text }
 });
