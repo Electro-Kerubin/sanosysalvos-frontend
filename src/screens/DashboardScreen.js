@@ -73,25 +73,33 @@ export default function DashboardScreen({ navigation }) {
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    api.getReports()
-      .then((res) => {
+    Promise.all([
+      api.getReports(),
+      api.getCoordenadas().catch(() => ({ data: [] })),
+    ])
+      .then(([resReportes, resCoordenadas]) => {
         if (!mounted) return;
-        const data = res?.data;
-        // Soporta respuesta directa como array o paginada de Spring Boot { content: [] }
+        const data = resReportes?.data;
         const items = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : null);
-        if (items) setReports(items.map(mapReporteDTO));
-        else console.warn('Formato de respuesta inesperado:', data);
+        if (!items) { console.warn('Formato de respuesta inesperado:', data); return; }
+
+        const coordMap = {};
+        (resCoordenadas?.data || []).forEach(c => { coordMap[c.idReporte] = c; });
+
+        setReports(items.map(dto => {
+          const mapped = mapReporteDTO(dto);
+          const coord = coordMap[mapped.id];
+          if (coord) { mapped.lat = coord.ubicacionLat; mapped.lng = coord.ubicacionLon; }
+          return mapped;
+        }));
       })
       .catch((err) => {
-        console.error('Error al cargar reportes:', err?.response?.status, err?.message || err);
         if (!mounted) return;
         setError(err?.response?.data?.message || err?.message || 'Error al cargar reportes');
       })
       .finally(() => mounted && setLoading(false));
 
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   const reportsOrdered = useMemo(() => {

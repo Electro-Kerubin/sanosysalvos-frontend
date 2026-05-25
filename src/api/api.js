@@ -67,6 +67,7 @@ export default {
   getCanalesPreferencia: () => api.get('/api/catalogos/canales-preferencia'),
   // Geolocalización
   getComunas: () => api.get('/api/comunas'),
+  getCoordenadas: () => api.get('/api/coordenadas'),
   createCoordenada: data => api.post('/api/coordenadas', data),
   // Otros
   getGeo: params => api.get('/api/geo', { params }),
