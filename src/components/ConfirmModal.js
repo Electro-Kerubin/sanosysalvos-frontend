@@ -7,6 +7,7 @@ export default function ConfirmModal({ visible, title, message, onConfirm, onCan
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.dialog}>
+          <View style={styles.accentBar} />
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
           <View style={styles.buttons}>
@@ -26,27 +27,44 @@ export default function ConfirmModal({ visible, title, message, onConfirm, onCan
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(20, 32, 51, 0.58)',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    padding: 20
   },
   dialog: {
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    padding: 24,
-    width: '85%',
-    maxWidth: 320,
-    gap: 16
+    borderRadius: 24,
+    padding: 22,
+    width: '100%',
+    maxWidth: 360,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.14,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 4
+  },
+  accentBar: {
+    width: 56,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: COLORS.primary,
+    alignSelf: 'center'
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.text
+    fontSize: 20,
+    fontWeight: '900',
+    color: COLORS.text,
+    textAlign: 'center'
   },
   message: {
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.muted,
-    lineHeight: 20
+    lineHeight: 22,
+    textAlign: 'center'
   },
   buttons: {
     flexDirection: 'row',
@@ -55,8 +73,8 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
+    minHeight: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5
@@ -70,7 +88,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accent
   },
   buttonText: {
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 14
   },
   cancelText: {

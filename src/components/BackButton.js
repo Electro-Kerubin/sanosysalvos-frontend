@@ -8,7 +8,7 @@ export default function BackButton() {
   const navigation = useNavigation();
   return (
     <TouchableOpacity style={[styles.container, Platform.OS === 'web' ? { top: 20 } : {}]} onPress={() => navigation.goBack()}>
-      <Ionicons name="arrow-back" size={20} color="#fff" />
+      <Ionicons name="arrow-back" size={20} color={COLORS.text} />
     </TouchableOpacity>
   );
 }
@@ -19,11 +19,18 @@ const styles = StyleSheet.create({
     top: 12,
     left: 12,
     zIndex: 20,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.surface,
     width: 44,
     height: 44,
-    borderRadius: 8,
+    borderRadius: 14,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2
   }
 });

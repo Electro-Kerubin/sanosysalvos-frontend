@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, Image } from 'react-native';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import { COLORS } from '../styles/theme';
@@ -35,48 +35,89 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <ScreenShell title="Sanos y Salvos" subtitle="Encuentra a tu amigo" logo>
-      <Text style={styles.title}>Iniciar sesión</Text>
-      <View style={styles.form}>
-        <TextInput 
-          placeholder="Correo electrónico" 
-          placeholderTextColor={COLORS.muted} 
-          style={styles.input} 
-          keyboardType="email-address" 
-          autoCapitalize="none" 
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput 
-          placeholder="Contraseña" 
-          placeholderTextColor={COLORS.muted} 
-          style={styles.input} 
-          secureTextEntry 
-          value={password}
-          onChangeText={setPassword}
-        />
-        <PrimaryButton title="Entrar" onPress={handleLogin} style={styles.button} />
+      <View style={styles.heroCard}>
+        <Image source={require('../../assets/images/index.png')} style={styles.heroImage} resizeMode="contain" />
+        <Text style={styles.title}>Iniciar sesión</Text>
+        <Text style={styles.lead}>Accede para publicar, seguir y gestionar reportes desde una interfaz más clara.</Text>
+      </View>
+
+      <View style={styles.formCard}>
+        <View style={styles.form}>
+          <TextInput 
+            placeholder="Correo electrónico" 
+            placeholderTextColor={COLORS.muted} 
+            style={styles.input} 
+            keyboardType="email-address" 
+            autoCapitalize="none" 
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextInput 
+            placeholder="Contraseña" 
+            placeholderTextColor={COLORS.muted} 
+            style={styles.input} 
+            secureTextEntry 
+            value={password}
+            onChangeText={setPassword}
+          />
+          <PrimaryButton title="Entrar" onPress={handleLogin} style={styles.button} />
+        </View>
       </View>
 
       <Pressable onPress={() => navigation.navigate('Register')} style={styles.linkBox}>
-        <Text style={styles.linkText}>Aun no tienes cuenta? Registrate Aquí</Text>
+        <Text style={styles.linkText}>Aún no tienes cuenta? Regístrate aquí</Text>
       </Pressable>
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 28, fontWeight: '800', color: COLORS.text, marginBottom: 14, textAlign: 'center' },
+  heroCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 1,
+    marginBottom: 18,
+  },
+  heroImage: {
+    width: '100%',
+    maxWidth: 430,
+    height: 230,
+    borderRadius: 24,
+    alignSelf: 'center'
+  },
+  title: { fontSize: 30, fontWeight: '900', color: COLORS.text, marginTop: 10, textAlign: 'center', letterSpacing: -0.4 },
+  lead: { marginTop: 8, color: COLORS.muted, textAlign: 'center', lineHeight: 21, fontSize: 14 },
+  formCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
+  },
   form: { gap: 12 },
   input: {
-    minHeight: 52,
-    borderRadius: 16,
+    minHeight: 54,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
     paddingHorizontal: 16,
-    color: COLORS.text
+    color: COLORS.text,
+    fontSize: 15,
   },
-  button: { width: '88%', alignSelf: 'center' },
+  button: { width: '100%', alignSelf: 'center', marginTop: 4 },
   linkBox: { marginTop: 18, alignItems: 'center' },
   linkText: { color: COLORS.secondary, fontWeight: '800', textAlign: 'center' }
 });

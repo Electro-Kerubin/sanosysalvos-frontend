@@ -12,5 +12,6 @@ export const COLORS = {
 };
 export const FONT = {
   regular: 'System',
+  medium: 'System',
   bold: 'System'
 };

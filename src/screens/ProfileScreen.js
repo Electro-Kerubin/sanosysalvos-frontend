@@ -81,6 +81,7 @@ export default function ProfileScreen({ navigation }) {
       )}
 
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>Datos visibles para contacto</Text>
         <Text style={styles.label}>Correo electrónico</Text>
         <Text style={styles.value}>{email || '—'}</Text>
 
@@ -129,18 +130,29 @@ const styles = StyleSheet.create({
   backButton: {
     width: 44, height: 44, borderRadius: 14,
     backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
-    alignItems: 'center', justifyContent: 'center'
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 1
   },
   successBanner: {
-    marginTop: 16, padding: 12, borderRadius: 12,
+    marginTop: 16, padding: 12, borderRadius: 14,
     backgroundColor: '#dcfce7', borderWidth: 1, borderColor: '#86efac'
   },
   successText: { color: '#166534', fontSize: 13, fontWeight: '600' },
   card: {
     backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 20, padding: 18, marginTop: 20, gap: 6
+    borderRadius: 30, padding: 18, marginTop: 20, gap: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
   },
-  label: { color: COLORS.muted, fontSize: 12, marginTop: 10, fontWeight: '600' },
+  cardTitle: { fontSize: 16, fontWeight: '900', color: COLORS.text, marginBottom: 4 },
+  label: { color: COLORS.muted, fontSize: 12, marginTop: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
   value: { color: COLORS.text, fontSize: 16, fontWeight: '800' },
   editActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   saveBtn: { flex: 1 },

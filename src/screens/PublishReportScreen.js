@@ -463,7 +463,20 @@ export default function PublishReportScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  form: { gap: 10, paddingBottom: 32 },
+  form: {
+    gap: 12,
+    paddingBottom: 32,
+    backgroundColor: COLORS.surface,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
+  },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -471,7 +484,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
@@ -480,7 +493,7 @@ const styles = StyleSheet.create({
   backText: { fontSize: 14, fontWeight: '600', color: COLORS.text },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
     color: COLORS.text,
     marginTop: 16,
     marginBottom: 4,
@@ -490,7 +503,7 @@ const styles = StyleSheet.create({
   },
   field: { gap: 6 },
   label: { fontSize: 13, fontWeight: '700', color: COLORS.muted },
-  textArea: { minHeight: 100, textAlignVertical: 'top', paddingTop: 14 },
+  textArea: { minHeight: 104, textAlignVertical: 'top', paddingTop: 14 },
   pillRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   pill: {
     paddingHorizontal: 14,
@@ -505,7 +518,7 @@ const styles = StyleSheet.create({
   pillTextActive: { color: '#fff' },
   errorBanner: {
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: '#fee2e2',
     borderWidth: 1,
     borderColor: '#fca5a5',
@@ -515,7 +528,7 @@ const styles = StyleSheet.create({
   loadingText: { color: COLORS.muted, fontSize: 14 },
   changeLink: { fontSize: 12, color: COLORS.secondary, marginTop: 4, textDecorationLine: 'underline' },
   detectingText: { fontSize: 12, color: COLORS.muted, marginTop: 4 },
-  mapHint: { padding: 10, borderRadius: 10, backgroundColor: '#fef9c3', borderWidth: 1, borderColor: '#fde047' },
+  mapHint: { padding: 10, borderRadius: 14, backgroundColor: '#fef9c3', borderWidth: 1, borderColor: '#fde047' },
   mapHintText: { fontSize: 12, color: '#854d0e', fontWeight: '600' },
-  submitButton: { marginTop: 20 },
+  submitButton: { marginTop: 20, width: '100%' },
 });

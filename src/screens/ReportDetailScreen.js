@@ -80,7 +80,7 @@ export default function ReportDetailScreen({ navigation, route }) {
 
             {/* Panel izquierdo: imagen placeholder */}
             <View style={styles.mediaPane}>
-              <View style={[styles.mediaViewer, { backgroundColor: report.status === 'Encontrado' ? '#dcfce7' : '#fee2e2' }]}>
+              <View style={[styles.mediaViewer, { backgroundColor: report.status === 'Encontrado' ? '#ecfdf3' : '#fef2f2' }]}>
                 <View style={styles.mediaPlaceholder}>
                   <Ionicons name="paw" size={64} color={report.status === 'Encontrado' ? COLORS.success : COLORS.accent} />
                   <Text style={styles.mediaPlaceholderText}>{report.name}</Text>
@@ -157,23 +157,33 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 1
   },
   ownerButtons: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1, marginLeft: 12 },
   ownerButton: { minWidth: 130 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
   loadingText: { color: COLORS.muted, fontSize: 14 },
   errorText: { color: COLORS.accent, fontSize: 14, fontWeight: '600', textAlign: 'center' },
-  content: { padding: 20, paddingBottom: 32 },
+  content: { padding: 20, paddingBottom: 32, width: '100%', alignItems: 'center' },
   wrapper: { gap: 18 },
   row: { flexDirection: 'row' },
   column: { flexDirection: 'column' },
   mediaPane: { flex: 1.1 },
   mediaViewer: {
-    borderRadius: 28,
+    borderRadius: 30,
     minHeight: 300,
     borderWidth: 1,
     borderColor: COLORS.border,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
   },
   mediaPlaceholder: {
     flex: 1,
@@ -188,13 +198,18 @@ const styles = StyleSheet.create({
   infoPane: {
     flex: 0.9,
     backgroundColor: COLORS.surface,
-    borderRadius: 28,
-    padding: 18,
+    borderRadius: 30,
+    padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
   },
-  name: { fontSize: 30, fontWeight: '900', color: COLORS.text },
+  name: { fontSize: 32, fontWeight: '900', color: COLORS.text, letterSpacing: -0.4 },
   meta: { color: COLORS.muted, fontSize: 14 },
   statusPill: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
   found: { backgroundColor: '#dcfce7' },
@@ -213,7 +228,7 @@ const styles = StyleSheet.create({
   },
   tagText: { fontSize: 12, color: COLORS.text, fontWeight: '600' },
   contactCard: {
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 14,
     backgroundColor: COLORS.soft,
     borderWidth: 1,

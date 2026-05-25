@@ -324,7 +324,7 @@ export default function DashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 14,
     paddingBottom: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -332,18 +332,25 @@ const styles = StyleSheet.create({
     gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.background
+    backgroundColor: 'rgba(246, 243, 237, 0.95)'
   },
-  content: { padding: 20, paddingBottom: 34, gap: 18 },
+  content: { padding: 20, paddingBottom: 34, gap: 18, width: '100%', alignItems: 'center' },
   section: {
     backgroundColor: COLORS.surface,
-    borderRadius: 28,
-    padding: 16,
+    borderRadius: 30,
+    padding: 18,
     borderWidth: 1,
-    borderColor: COLORS.border
+    borderColor: COLORS.border,
+    width: '100%',
+    maxWidth: 1120,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1
   },
   sectionTitleRow: { gap: 6, marginBottom: 10 },
-  sectionTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
+  sectionTitle: { fontSize: 22, fontWeight: '900', color: COLORS.text, letterSpacing: -0.2 },
   sectionHint: { color: COLORS.muted, fontSize: 12 },
   pagination: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   pageChip: {
@@ -365,7 +372,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 999,
     backgroundColor: COLORS.soft,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -398,14 +405,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 18,
+    borderRadius: 20,
     gap: 8
   },
   mobileMenuItem: { paddingVertical: 10, paddingHorizontal: 10 },
   mobileMenuText: { color: COLORS.text, fontWeight: '700' },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 8 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 10 },
   loadingText: { color: COLORS.muted, fontSize: 14 },
-  errorBanner: { marginHorizontal: 20, marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#fca5a5' },
+  errorBanner: { marginHorizontal: 20, marginTop: 8, padding: 12, borderRadius: 14, backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#fca5a5' },
   errorText: { color: '#b91c1c', fontSize: 13, fontWeight: '600' },
   emptyText: { color: COLORS.muted, fontSize: 13, marginTop: 6 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },

@@ -103,10 +103,16 @@ const iframeStyle = {
 
 const styles = StyleSheet.create({
   wrapper: {
-    height: 340,
-    borderRadius: 20,
+    height: 360,
+    borderRadius: 26,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
+    backgroundColor: COLORS.soft,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
   },
 });
