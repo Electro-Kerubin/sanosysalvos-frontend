@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, Image, ActivityIndicator } from 'react-native';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import { COLORS } from '../styles/theme';
@@ -9,22 +9,48 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    try {
-      let response;
-      if (email === 'test@test.com' && password === 'Test.1234') {
-        response = {
-          data: {
-            token: 'mock-token-for-testing',
-            nombreCompleto: 'Usuario de Prueba',
-            rol: 'admin'
-          }
+    setLoading(true);
+
+    // MODO DEV: Inicio de sesión rápido con datos de prueba.
+    // __DEV__ es una variable global en React Native/Expo que es true en desarrollo.
+    if (
+      __DEV__ &&
+      email.toLowerCase() === 'test@test.com' &&
+      password === 'Test.1234'
+    ) {
+      try {
+        const mockProfile = {
+          name: 'Usuario de Prueba',
+          email: 'test@test.com',
+          phone: '912345678',
         };
-      } else {
-        // Llama al API Gateway -> Microservicio de Autenticación
-        response = await api.login(email, password);
+        const mockToken = 'mock-jwt-token-for-dev-only';
+
+        await AsyncStorage.setItem('profile', JSON.stringify(mockProfile));
+        await AsyncStorage.setItem('token', mockToken);
+
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('profile', JSON.stringify(mockProfile));
+          window.localStorage.setItem('token', mockToken);
+          window.localStorage.setItem('myReportIds', JSON.stringify(['r-1', 'r-3']));
+        }
+
+        alert('Sesión de prueba iniciada con test@test.com.');
+        navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+        return;
+      } catch (error) {
+        alert('Error al iniciar sesión como usuario de prueba.');
+        setLoading(false);
+        return;
       }
+    }
+
+    try {
+      // Llama al API Gateway -> Microservicio de Autenticación
+      const response = await api.login(email, password);
       
       const { token, nombreCompleto, rol } = response.data;
       await AsyncStorage.multiSet([
@@ -48,6 +74,7 @@ export default function LoginScreen({ navigation }) {
     } catch (error) {
       console.error(error);
       alert("Credenciales incorrectas o error de conexión.");
+      setLoading(false);
     }
   };
 
@@ -69,6 +96,7 @@ export default function LoginScreen({ navigation }) {
             autoCapitalize="none" 
             value={email}
             onChangeText={setEmail}
+            editable={!loading}
           />
           <TextInput 
             placeholder="Contraseña" 
@@ -77,8 +105,14 @@ export default function LoginScreen({ navigation }) {
             secureTextEntry 
             value={password}
             onChangeText={setPassword}
+            editable={!loading}
           />
-          <PrimaryButton title="Entrar" onPress={handleLogin} style={styles.button} />
+          <PrimaryButton
+            title={loading ? 'Ingresando...' : 'Entrar'}
+            onPress={handleLogin}
+            style={styles.button}
+            disabled={loading}
+          />
         </View>
       </View>
 

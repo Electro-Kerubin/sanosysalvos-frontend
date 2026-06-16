@@ -6,43 +6,6 @@ import PrimaryButton from '../components/PrimaryButton';
 import { COLORS } from '../styles/theme';
 import api from '../api/api';
 
-function MockLoginButton({ navigation }) {
-  // Este botón solo debería estar visible en el entorno de desarrollo.
-  if (process.env.NODE_ENV !== 'development') {
-    return null;
-  }
-
-  const handleMockLogin = async () => {
-    try {
-      // 1. Perfil de usuario de prueba con los datos que solicitaste.
-      const mockProfile = {
-        name: 'Test Tester',
-        email: 'test@test.com',
-        phone: '912345678',
-      };
-
-      // 2. Guardar el perfil en el almacenamiento para simular una sesión.
-      await AsyncStorage.setItem('profile', JSON.stringify(mockProfile));
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('profile', JSON.stringify(mockProfile));
-        // Para que puedas probar la sección "Mis Reportes", simulamos que el usuario es dueño de algunos.
-        window.localStorage.setItem('myReportIds', JSON.stringify(['r-1', 'r-3']));
-      }
-
-      // 3. Navegar al Dashboard.
-      alert('Sesión iniciada con el usuario de prueba (test@test.com).');
-      navigation.navigate('Dashboard');
-    } catch (error) {
-      console.error('Falló el inicio de sesión de prueba:', error);
-      alert('Error al iniciar sesión como usuario de prueba.');
-    }
-  };
-
-  return (
-    <PrimaryButton title="DEV: Login como test@test.com" onPress={handleMockLogin} style={styles.mockButton} />
-  );
-}
-
 export default function RegisterScreen({ navigation }) {
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [email, setEmail] = useState('');
@@ -125,7 +88,6 @@ export default function RegisterScreen({ navigation }) {
         <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
       </Pressable>
 
-      <MockLoginButton navigation={navigation} />
     </ScreenShell>
   );
 }
@@ -179,8 +141,4 @@ const styles = StyleSheet.create({
   button: { width: '100%', alignSelf: 'center', marginTop: 4 },
   linkBox: { marginTop: 18, alignItems: 'center' },
   linkText: { color: COLORS.secondary, fontWeight: '800', textAlign: 'center' },
-  mockButton: {
-    marginTop: 20,
-    backgroundColor: '#facc15', // yellow-400
-  }
 });
