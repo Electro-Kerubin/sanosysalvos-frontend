@@ -11,6 +11,11 @@ import ReportDetailScreen from '../screens/ReportDetailScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import LogoutScreen from '../screens/LogoutScreen';
+// Nuevas pantallas
+import PetFoundScreen from '../screens/PetFoundScreen';
+import DonationsScreen from '../screens/DonationsScreen';
+import QuickReportScreen from '../screens/QuickReportScreen';
+import RescueRoomScreen from '../screens/RescueRoomScreen';
 
 const Stack = createStackNavigator();
 
@@ -49,6 +54,28 @@ export default function AppNavigation() {
         <Stack.Screen name="Notifications" component={NotificationScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Logout" component={LogoutScreen} />
+        
+        {/* Nuevas pantallas de features */}
+        <Stack.Screen 
+          name="PetFound" 
+          component={PetFoundScreen}
+          options={{ title: 'Mascota Encontrada' }}
+        />
+        <Stack.Screen 
+          name="Donations" 
+          component={DonationsScreen}
+          options={{ title: 'Donaciones' }}
+        />
+        <Stack.Screen 
+          name="QuickReport" 
+          component={QuickReportScreen}
+          options={{ title: 'Reportar Avistamiento' }}
+        />
+        <Stack.Screen 
+          name="RescueRoom" 
+          component={RescueRoomScreen}
+          options={{ title: 'Sala de Rescate' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
