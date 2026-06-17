@@ -16,6 +16,7 @@ import PetFoundScreen from '../screens/PetFoundScreen';
 import DonationsScreen from '../screens/DonationsScreen';
 import QuickReportScreen from '../screens/QuickReportScreen';
 import RescueRoomScreen from '../screens/RescueRoomScreen';
+import PublicReportsScreen from '../screens/PublicReportsScreen';
 
 const Stack = createStackNavigator();
 
@@ -54,6 +55,7 @@ export default function AppNavigation() {
         <Stack.Screen name="Notifications" component={NotificationScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Logout" component={LogoutScreen} />
+        <Stack.Screen name="PublicReports" component={PublicReportsScreen} />
         
         {/* Nuevas pantallas de features */}
         <Stack.Screen 

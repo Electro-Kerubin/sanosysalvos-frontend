@@ -386,44 +386,46 @@ export default function RescueRoomScreen({ route, navigation }) {
         </View>
       </View>
 
-      {/* Chat */}
-      <FlatList
-        ref={scrollViewRef}
-        data={messages}
-        keyExtractor={(item, index) => item.id || index.toString()}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messagesContainer}
-        scrollEnabled={true}
-        onEndReachedThreshold={0.1}
-      />
-
-      {/* Input de mensajes */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Escribe un mensaje..."
-          value={messageInput}
-          onChangeText={setMessageInput}
-          placeholderTextColor="#999"
-          editable={!isSendingMessage}
-          multiline
-          maxLength={500}
+      <View style={styles.chatWrapper}>
+        {/* Chat */}
+        <FlatList
+          ref={scrollViewRef}
+          data={messages}
+          keyExtractor={(item, index) => item.id || index.toString()}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messagesContainer}
+          scrollEnabled={true}
+          onEndReachedThreshold={0.1}
         />
 
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            (!messageInput.trim() || isSendingMessage) && styles.sendButtonDisabled,
-          ]}
-          onPress={handleSendMessage}
-          disabled={!messageInput.trim() || isSendingMessage}
-        >
-          {isSendingMessage ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Ionicons name="send" size={20} color="#fff" />
-          )}
-        </TouchableOpacity>
+        {/* Input de mensajes */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Escribe un mensaje..."
+            value={messageInput}
+            onChangeText={setMessageInput}
+            placeholderTextColor="#999"
+            editable={!isSendingMessage}
+            multiline
+            maxLength={500}
+          />
+
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              (!messageInput.trim() || isSendingMessage) && styles.sendButtonDisabled,
+            ]}
+            onPress={handleSendMessage}
+            disabled={!messageInput.trim() || isSendingMessage}
+          >
+            {isSendingMessage ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Ionicons name="send" size={20} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {locationError && (
@@ -536,6 +538,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     fontStyle: 'italic',
+  },
+  chatWrapper: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 800,
+    alignSelf: 'center',
   },
   messagesContainer: {
     paddingHorizontal: 12,

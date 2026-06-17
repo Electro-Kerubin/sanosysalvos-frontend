@@ -80,50 +80,57 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <ScreenShell title="Sanos y Salvos" subtitle="Encuentra a tu amigo" logo>
-      <View style={styles.heroCard}>
-        <Image source={require('../../assets/images/index.png')} style={styles.heroImage} resizeMode="contain" />
-        <Text style={styles.title}>Iniciar sesión</Text>
-        <Text style={styles.lead}>Accede para publicar, seguir y gestionar reportes desde una interfaz más clara.</Text>
-      </View>
-
-      <View style={styles.formCard}>
-        <View style={styles.form}>
-          <TextInput 
-            placeholder="Correo electrónico" 
-            placeholderTextColor={COLORS.muted} 
-            style={styles.input} 
-            keyboardType="email-address" 
-            autoCapitalize="none" 
-            value={email}
-            onChangeText={setEmail}
-            editable={!loading}
-          />
-          <TextInput 
-            placeholder="Contraseña" 
-            placeholderTextColor={COLORS.muted} 
-            style={styles.input} 
-            secureTextEntry 
-            value={password}
-            onChangeText={setPassword}
-            editable={!loading}
-          />
-          <PrimaryButton
-            title={loading ? 'Ingresando...' : 'Entrar'}
-            onPress={handleLogin}
-            style={styles.button}
-            disabled={loading}
-          />
+      <View style={styles.contentWrapper}>
+        <View style={styles.heroCard}>
+          <Image source={require('../../assets/images/index.png')} style={styles.heroImage} resizeMode="contain" />
+          <Text style={styles.title}>Iniciar sesión</Text>
+          <Text style={styles.lead}>Accede para publicar, seguir y gestionar reportes desde una interfaz más clara.</Text>
         </View>
-      </View>
 
-      <Pressable onPress={() => navigation.navigate('Register')} style={styles.linkBox}>
-        <Text style={styles.linkText}>Aún no tienes cuenta? Regístrate aquí</Text>
-      </Pressable>
+        <View style={styles.formCard}>
+          <View style={styles.form}>
+            <TextInput 
+              placeholder="Correo electrónico" 
+              placeholderTextColor={COLORS.muted} 
+              style={styles.input} 
+              keyboardType="email-address" 
+              autoCapitalize="none" 
+              value={email}
+              onChangeText={setEmail}
+              editable={!loading}
+            />
+            <TextInput 
+              placeholder="Contraseña" 
+              placeholderTextColor={COLORS.muted} 
+              style={styles.input} 
+              secureTextEntry 
+              value={password}
+              onChangeText={setPassword}
+              editable={!loading}
+            />
+            <PrimaryButton
+              title={loading ? 'Ingresando...' : 'Entrar'}
+              onPress={handleLogin}
+              style={styles.button}
+              disabled={loading}
+            />
+          </View>
+        </View>
+
+        <Pressable onPress={() => navigation.navigate('Register')} style={styles.linkBox}>
+          <Text style={styles.linkText}>Aún no tienes cuenta? Regístrate aquí</Text>
+        </Pressable>
+      </View>
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
+  contentWrapper: {
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
+  },
   heroCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 30,

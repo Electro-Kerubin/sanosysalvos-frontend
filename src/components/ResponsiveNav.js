@@ -3,14 +3,14 @@ import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../styles/theme';
 
-const links = [
+const defaultLinks = [
   { key: 'PublishReport', label: 'Publicar reporte', icon: 'document-text-outline' },
   { key: 'Notifications', label: 'Notificaciones', icon: 'notifications-outline' },
   { key: 'Profile', label: 'Perfil', icon: 'person-outline' },
   { key: 'Logout', label: 'Cerrar sesión', icon: 'log-out-outline' }
 ];
 
-export default function ResponsiveNav({ navigation, openMenu, onLogout, notificationBadgeCount = 0 }) {
+export default function ResponsiveNav({ navigation, openMenu, onLogout, notificationBadgeCount = 0, links = defaultLinks }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 760;
 

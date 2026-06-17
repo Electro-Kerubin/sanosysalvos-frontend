@@ -232,6 +232,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 30,
+    alignItems: 'center',
+  },
+  contentWrapper: {
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
   },
   centerContent: {
     flex: 1,
