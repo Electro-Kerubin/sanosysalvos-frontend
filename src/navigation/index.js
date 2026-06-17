@@ -15,7 +15,7 @@ import LogoutScreen from '../screens/LogoutScreen';
 import PetFoundScreen from '../screens/PetFoundScreen';
 import DonationsScreen from '../screens/DonationsScreen';
 import QuickReportScreen from '../screens/QuickReportScreen';
-import RescueRoomScreen from '../screens/RescueRoomScreen';
+import InboxScreen from '../screens/InboxScreen';
 import PublicReportsScreen from '../screens/PublicReportsScreen';
 
 const Stack = createStackNavigator();
@@ -74,9 +74,9 @@ export default function AppNavigation() {
           options={{ title: 'Reportar Avistamiento' }}
         />
         <Stack.Screen 
-          name="RescueRoom" 
-          component={RescueRoomScreen}
-          options={{ title: 'Sala de Rescate' }}
+          name="Inbox" 
+          component={InboxScreen}
+          options={{ title: 'Mensajes' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

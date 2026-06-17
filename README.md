@@ -8,7 +8,7 @@ Bienvenido al repositorio del frontend de **Sanos y Salvos**, una plataforma col
 
 - **Diseño Responsivo:** UI adaptativa y optimizada para verse de forma ordenada y legible en cualquier tamaño u orientación de pantalla, ya sea un dispositivo móvil, tablet o monitor ultra ancho.
 - **Reportes de Mascotas:** Funcionalidad completa para reportar una mascota perdida o encontrada con soporte para subida de fotos y selección de coordenadas en un mapa.
-- **Sala de Rescate en Tiempo Real:** Chat en vivo y seguimiento de ubicación en tiempo real utilizando WebSockets para coordinar rescates comunitarios.
+- **Mensajería Privada:** Chat asincrónico entre usuarios para coordinar rescates o reportes de mascotas encontradas de manera segura, con soporte para fotos y ubicación compartida.
 - **Progressive Web App (PWA):** Soporte offline básico y capacidad de instalarse en el dispositivo mediante service workers.
 - **Ecosistema Multiplataforma:** Desarrollado con React Native y Expo, soportando ambientes Web y Móvil.
 
