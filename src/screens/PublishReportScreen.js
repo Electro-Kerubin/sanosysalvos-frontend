@@ -925,6 +925,9 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 1,
+    width: '100%',
+    maxWidth: 800,
+    alignSelf: 'center',
   },
   backButton: {
     flexDirection: 'row',

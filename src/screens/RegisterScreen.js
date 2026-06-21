@@ -103,6 +103,7 @@ export default function RegisterScreen({ navigation }) {
       <Pressable onPress={() => navigation.navigate('Login')} style={styles.linkBox}>
         <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
       </Pressable>
+
     </ScreenShell>
   );
 }
@@ -155,5 +156,5 @@ const styles = StyleSheet.create({
   },
   button: { width: '100%', alignSelf: 'center', marginTop: 4 },
   linkBox: { marginTop: 18, alignItems: 'center' },
-  linkText: { color: COLORS.secondary, fontWeight: '800', textAlign: 'center' }
+  linkText: { color: COLORS.secondary, fontWeight: '800', textAlign: 'center' },
 });

@@ -1,0 +1,74 @@
+{
+  "name": "Sanos y Salvos - Red de Rescate Animal",
+  "short_name": "Sanos y Salvos",
+  "description": "Plataforma colaborativa para reportar y rescatar mascotas perdidas en tu comunidad",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#FF6B6B",
+  "icons": [
+    {
+      "src": "/assets/logo/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/logo/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/logo/icon-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["social", "productivity"],
+  "screenshots": [
+    {
+      "src": "/assets/screenshots/screenshot1.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/assets/screenshots/screenshot2.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Reportar Avistamiento",
+      "short_name": "Reportar",
+      "description": "Crear un reporte rápido de avistamiento",
+      "url": "/report-quick",
+      "icons": [
+        {
+          "src": "/assets/logo/shortcut-report.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Mi Perfil",
+      "short_name": "Perfil",
+      "description": "Acceder a tu perfil y mascota",
+      "url": "/profile",
+      "icons": [
+        {
+          "src": "/assets/logo/shortcut-profile.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

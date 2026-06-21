@@ -367,7 +367,14 @@ export default function DashboardScreen({ navigation }) {
     <ScreenShell padded={false} scroll={false}>
       <View style={styles.header}>
         <LogoBanner compact />
-        <ResponsiveNav navigation={navigation} openMenu={() => setMenuOpen((value) => !value)} onLogout={handleLogout} notificationBadgeCount={notificationBadgeCount} />
+        <View style={styles.headerNavWrapper}>
+          {isWide && (
+            <Pressable onPress={() => navigation.navigate('Inbox')} style={styles.chatHeaderButton}>
+              <Text style={styles.chatHeaderButtonText}>Chat</Text>
+            </Pressable>
+          )}
+          <ResponsiveNav navigation={navigation} openMenu={() => setMenuOpen((value) => !value)} onLogout={handleLogout} notificationBadgeCount={notificationBadgeCount} />
+        </View>
       </View>
 
       {menuOpen ? (
@@ -376,6 +383,7 @@ export default function DashboardScreen({ navigation }) {
             ['PublishReport', 'Publicar reporte'],
             ['Notifications', 'Notificaciones'],
             ['Profile', 'Perfil'],
+            ['Inbox', 'Chat'],
             ['Logout', 'Cerrar sesión']
           ].map(([route, label]) => (
             <Pressable key={route} onPress={() => (route === 'Logout' ? handleLogout() : navigation.navigate(route))} style={styles.mobileMenuItem}>
@@ -552,6 +560,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     backgroundColor: 'rgba(246, 243, 237, 0.95)'
+  },
+  headerNavWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  chatHeaderButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  chatHeaderButtonText: {
+    fontWeight: '700',
+    color: COLORS.text,
+    fontSize: 14,
   },
   content: { padding: 20, paddingBottom: 34, gap: 18, width: '100%', alignItems: 'center' },
   section: {

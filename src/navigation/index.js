@@ -11,7 +11,12 @@ import ReportDetailScreen from '../screens/ReportDetailScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import LogoutScreen from '../screens/LogoutScreen';
-import MatchingScreen from '../screens/MatchingScreen';
+// Nuevas pantallas
+import PetFoundScreen from '../screens/PetFoundScreen';
+import DonationsScreen from '../screens/DonationsScreen';
+import QuickReportScreen from '../screens/QuickReportScreen';
+import InboxScreen from '../screens/InboxScreen';
+import PublicReportsScreen from '../screens/PublicReportsScreen';
 
 const Stack = createStackNavigator();
 
@@ -50,7 +55,29 @@ export default function AppNavigation() {
         <Stack.Screen name="Notifications" component={NotificationScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Logout" component={LogoutScreen} />
-        <Stack.Screen name="Matching" component={MatchingScreen} />
+        <Stack.Screen name="PublicReports" component={PublicReportsScreen} />
+        
+        {/* Nuevas pantallas de features */}
+        <Stack.Screen 
+          name="PetFound" 
+          component={PetFoundScreen}
+          options={{ title: 'Mascota Encontrada' }}
+        />
+        <Stack.Screen 
+          name="Donations" 
+          component={DonationsScreen}
+          options={{ title: 'Donaciones' }}
+        />
+        <Stack.Screen 
+          name="QuickReport" 
+          component={QuickReportScreen}
+          options={{ title: 'Reportar Avistamiento' }}
+        />
+        <Stack.Screen 
+          name="Inbox" 
+          component={InboxScreen}
+          options={{ title: 'Mensajes' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

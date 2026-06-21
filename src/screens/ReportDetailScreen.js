@@ -271,7 +271,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                   </View>
                 ) : (
                   <View style={styles.mediaPlaceholder}>
-                    <Image source={require('../../assets/images/index.png')} style={styles.mediaPlaceholderImage} resizeMode="contain" />
+                    <Image source={require('../../assets/images/noimage.png')} style={styles.mediaPlaceholderImage} resizeMode="contain" />
                     <Text style={styles.mediaPlaceholderText}>{report.name}</Text>
                     <Text style={styles.mediaPlaceholderSub}>Reporte de mascota</Text>
                   </View>

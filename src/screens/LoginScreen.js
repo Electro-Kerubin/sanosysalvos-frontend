@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, Pressable, Image, ActivityIndicator } from 'react-native';
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import { COLORS } from '../styles/theme';
@@ -9,9 +9,45 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const passwordRef = useRef(null);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    setLoading(true);
+
+    // MODO DEV: Inicio de sesión rápido con datos de prueba.
+    // __DEV__ es una variable global en React Native/Expo que es true en desarrollo.
+    if (
+      __DEV__ &&
+      email.toLowerCase() === 'test@test.com' &&
+      password === 'Test.1234'
+    ) {
+      try {
+        const mockProfile = {
+          name: 'Usuario de Prueba',
+          email: 'test@test.com',
+          phone: '912345678',
+        };
+        const mockToken = 'mock-jwt-token-for-dev-only';
+
+        await AsyncStorage.setItem('profile', JSON.stringify(mockProfile));
+        await AsyncStorage.setItem('token', mockToken);
+
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('profile', JSON.stringify(mockProfile));
+          window.localStorage.setItem('token', mockToken);
+          window.localStorage.setItem('myReportIds', JSON.stringify(['r-1', 'r-3']));
+        }
+
+        alert('Sesión de prueba iniciada con test@test.com.');
+        navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+        return;
+      } catch (error) {
+        alert('Error al iniciar sesión como usuario de prueba.');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       // Llama al API Gateway -> Microservicio de Autenticación
       const response = await api.login(email, password);
@@ -38,53 +74,63 @@ export default function LoginScreen({ navigation }) {
     } catch (error) {
       console.error(error);
       alert("Credenciales incorrectas o error de conexión.");
+      setLoading(false);
     }
   };
 
   return (
     <ScreenShell title="Sanos y Salvos" subtitle="Encuentra a tu amigo" logo>
-      <View style={styles.heroCard}>
-        <Image source={require('../../assets/images/index.png')} style={styles.heroImage} resizeMode="contain" />
-        <Text style={styles.title}>Iniciar sesión</Text>
-        <Text style={styles.lead}>Accede para publicar, seguir y gestionar reportes desde una interfaz más clara.</Text>
-      </View>
-
-      <View style={styles.formCard}>
-        <View style={styles.form}>
-          <TextInput 
-            placeholder="Correo electrónico" 
-            placeholderTextColor={COLORS.muted} 
-            style={styles.input} 
-            keyboardType="email-address" 
-            autoCapitalize="none" 
-            value={email}
-            onChangeText={setEmail}
-            returnKeyType="next"
-            onSubmitEditing={() => passwordRef.current?.focus()}
-          />
-          <TextInput 
-            ref={passwordRef}
-            placeholder="Contraseña" 
-            placeholderTextColor={COLORS.muted} 
-            style={styles.input} 
-            secureTextEntry 
-            value={password}
-            onChangeText={setPassword}
-            returnKeyType="done"
-            onSubmitEditing={handleLogin}
-          />
-          <PrimaryButton title="Entrar" onPress={handleLogin} style={styles.button} />
+      <View style={styles.contentWrapper}>
+        <View style={styles.heroCard}>
+          <Image source={require('../../assets/images/index.png')} style={styles.heroImage} resizeMode="contain" />
+          <Text style={styles.title}>Iniciar sesión</Text>
+          <Text style={styles.lead}>Accede para publicar, seguir y gestionar reportes desde una interfaz más clara.</Text>
         </View>
-      </View>
 
-      <Pressable onPress={() => navigation.navigate('Register')} style={styles.linkBox}>
-        <Text style={styles.linkText}>Aún no tienes cuenta? Regístrate aquí</Text>
-      </Pressable>
+        <View style={styles.formCard}>
+          <View style={styles.form}>
+            <TextInput 
+              placeholder="Correo electrónico" 
+              placeholderTextColor={COLORS.muted} 
+              style={styles.input} 
+              keyboardType="email-address" 
+              autoCapitalize="none" 
+              value={email}
+              onChangeText={setEmail}
+              editable={!loading}
+            />
+            <TextInput 
+              placeholder="Contraseña" 
+              placeholderTextColor={COLORS.muted} 
+              style={styles.input} 
+              secureTextEntry 
+              value={password}
+              onChangeText={setPassword}
+              editable={!loading}
+            />
+            <PrimaryButton
+              title={loading ? 'Ingresando...' : 'Entrar'}
+              onPress={handleLogin}
+              style={styles.button}
+              disabled={loading}
+            />
+          </View>
+        </View>
+
+        <Pressable onPress={() => navigation.navigate('Register')} style={styles.linkBox}>
+          <Text style={styles.linkText}>Aún no tienes cuenta? Regístrate aquí</Text>
+        </Pressable>
+      </View>
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
+  contentWrapper: {
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
+  },
   heroCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 30,

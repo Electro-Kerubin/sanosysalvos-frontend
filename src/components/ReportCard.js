@@ -3,7 +3,7 @@ import { Pressable, View, Text, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../styles/theme';
 
-const DEFAULT_IMAGE = require('../../assets/images/index.png');
+const DEFAULT_IMAGE = require('../../assets/images/noimage.png');
 
 export default function ReportCard({ report, onPress, compact = false }) {
   const first = report.media && report.media.length ? report.media[0] : null;
