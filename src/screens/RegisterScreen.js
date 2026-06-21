@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Image, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenShell from '../components/ScreenShell';
@@ -11,6 +11,10 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const nameRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const confirmRef = useRef(null);
 
   const handleRegister = async () => {
     if (password !== confirm) {
@@ -48,14 +52,18 @@ export default function RegisterScreen({ navigation }) {
       <View style={styles.formCard}>
         <View style={styles.form}>
           <TextInput
+            ref={nameRef}
             placeholder="Nombre completo"
             placeholderTextColor={COLORS.muted}
             style={styles.input}
             autoCapitalize="words"
             value={nombreCompleto}
             onChangeText={setNombreCompleto}
+            returnKeyType="next"
+            onSubmitEditing={() => emailRef.current?.focus()}
           />
           <TextInput
+            ref={emailRef}
             placeholder="Correo electrónico"
             placeholderTextColor={COLORS.muted}
             style={styles.input}
@@ -63,22 +71,30 @@ export default function RegisterScreen({ navigation }) {
             autoCapitalize="none"
             value={email}
             onChangeText={setEmail}
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
           />
           <TextInput
+            ref={passwordRef}
             placeholder="Contraseña"
             placeholderTextColor={COLORS.muted}
             style={styles.input}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
+            returnKeyType="next"
+            onSubmitEditing={() => confirmRef.current?.focus()}
           />
           <TextInput
+            ref={confirmRef}
             placeholder="Repite la contraseña"
             placeholderTextColor={COLORS.muted}
             style={styles.input}
             secureTextEntry
             value={confirm}
             onChangeText={setConfirm}
+            returnKeyType="done"
+            onSubmitEditing={handleRegister}
           />
           <PrimaryButton title="Registrarme" onPress={handleRegister} style={styles.button} />
         </View>

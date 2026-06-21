@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,6 +60,7 @@ export default function ProfileScreen({ navigation }) {
   const [name, setName] = useState(initialName);
   const [phone, setPhone] = useState(initialPhone);
   const [saved, setSaved] = useState(false);
+  const phoneRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -116,6 +117,8 @@ export default function ProfileScreen({ navigation }) {
             onChangeText={setName}
             placeholder="Tu nombre completo"
             placeholderTextColor={COLORS.muted}
+            returnKeyType="next"
+            onSubmitEditing={() => phoneRef.current?.focus()}
           />
         ) : (
           <Text style={styles.value}>{name || '—'}</Text>
@@ -124,12 +127,15 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.label}>Teléfono</Text>
         {editMode ? (
           <TextInput
+            ref={phoneRef}
             style={INPUT_STYLE}
             value={phone}
             onChangeText={setPhone}
             placeholder="Ej: 912345678"
             placeholderTextColor={COLORS.muted}
             keyboardType="numeric"
+            returnKeyType="done"
+            onSubmitEditing={handleSave}
           />
         ) : (
           <Text style={styles.value}>{phone || '—'}</Text>

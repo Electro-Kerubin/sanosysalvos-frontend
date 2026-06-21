@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions, Pressable, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenShell from '../components/ScreenShell';
 import LogoBanner from '../components/LogoBanner';
@@ -75,7 +76,7 @@ function removeLocalReportId(reportId) {
 // Convierte el DTO del backend al formato que usan los componentes de UI
 function mapReporteDTO(dto, myIds, customSpeciesMap = {}, customBreedMap = {}, customMarkMap = {}, photoMap = {}, addressMap = {}, contactMethodMap = {}) {
   const tipoDesc = (dto.descripcionTipoReporte || '').toLowerCase();
-  const status = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
+  const status = tipoDesc.includes('encontrad') ? 'Encontrado' : tipoDesc.includes('avistamiento') ? 'Avistamiento' : 'Búsqueda';
   const customSpecies = customSpeciesMap[String(dto.idReporteMascota)] || '';
   const customBreed = customBreedMap[String(dto.idReporteMascota)] || '';
   const customMark = customMarkMap[String(dto.idReporteMascota)] || '';
@@ -121,6 +122,28 @@ function Pagination({ totalPages, page, setPage }) {
   );
 }
 
+function CollapsibleSection({ title, hint, expanded, onToggle, children }) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionTitleRow}>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
+        </View>
+        <Pressable onPress={onToggle} style={styles.sectionToggleIcon}>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.secondary} />
+        </Pressable>
+      </View>
+
+      {expanded ? children : null}
+
+      <Pressable onPress={onToggle} style={styles.sectionFooterToggle}>
+        <Text style={styles.sectionFooterToggleText}>{expanded ? 'Ver menos...' : 'Ver más...'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function DashboardScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 980;
@@ -133,10 +156,23 @@ export default function DashboardScreen({ navigation }) {
   const [reportToDelete, setReportToDelete] = useState(null);
   const [deletingReportId, setDeletingReportId] = useState(null);
   const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
+  const [foundModalVisible, setFoundModalVisible] = useState(false);
+  const [reportToMarkFound, setReportToMarkFound] = useState(null);
+  const [markingFoundId, setMarkingFoundId] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({
+    map: true,
+    matching: true,
+    latest: false,
+    mine: false,
+  });
 
   const handleLogout = () => {
     setLogoutModalVisible(true);
   };
+
+  const toggleSection = useCallback((key) => {
+    setExpandedSections(current => ({ ...current, [key]: !current[key] }));
+  }, []);
 
   const confirmLogout = () => {
     setLogoutModalVisible(false);
@@ -178,6 +214,27 @@ export default function DashboardScreen({ navigation }) {
       setDeletingReportId(null);
     }
   }, [cancelDeleteReport, reportToDelete]);
+
+  const confirmMarkAsFound = useCallback(async () => {
+    if (!reportToMarkFound?.id) { setFoundModalVisible(false); setReportToMarkFound(null); return; }
+    const reportId = reportToMarkFound.id;
+    setMarkingFoundId(reportId);
+    try {
+      const tiposRes = await api.getTiposReporte();
+      const tipos = tiposRes?.data || [];
+      const foundTipo = tipos.find(t => (t.descripcionTipoReporte || '').toLowerCase().includes('encontrad'));
+      if (!foundTipo) throw new Error('No se encontró el tipo "Mascota encontrada" en el catálogo.');
+      await api.updateReport(reportId, { idTipoReporte: foundTipo.idTipoReporte });
+      setReports(prev => prev.map(r => String(r.id) === String(reportId) ? { ...r, status: 'Encontrado' } : r));
+      setFoundModalVisible(false);
+      setReportToMarkFound(null);
+      setExpandedReportId(null);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'No se pudo marcar el reporte como encontrado.');
+    } finally {
+      setMarkingFoundId(null);
+    }
+  }, [reportToMarkFound]);
 
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -349,32 +406,30 @@ export default function DashboardScreen({ navigation }) {
       )}
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Mapa de reportes</Text>
-            <Text style={styles.sectionHint}>Verde = encontrado, rojo = búsqueda</Text>
-          </View>
+        <CollapsibleSection
+          title="Mapa de reportes"
+          hint="Verde = encontrado · Rojo = búsqueda · Naranja = avistamiento"
+          expanded={expandedSections.map}
+          onToggle={() => toggleSection('map')}
+        >
           <DashboardMap
             reports={reportsOrdered}
             onReportPress={id => navigation.navigate('ReportDetail', { reportId: id })}
           />
-        </View>
+        </CollapsibleSection>
 
         {/* MOTOR DE COINCIDENCIAS */}
-        <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Motor de Coincidencias</Text>
-            <View style={[styles.statusPill, matchingStatus === 'online' ? styles.statusOnline : matchingStatus === 'offline' ? styles.statusOffline : styles.statusChecking]}>
-              <Text style={styles.statusText}>
-                {matchingStatus === 'online' ? '● Activo' : matchingStatus === 'offline' ? '● Sin conexión' : '◌ Verificando...'}
-              </Text>
-            </View>
-          </View>
-          {lastChecked && (
-            <Text style={styles.sectionHint}>
-              Última verificación: {lastChecked.toLocaleTimeString()} · se actualiza cada 30s
+        <CollapsibleSection
+          title="Motor de Coincidencias"
+          hint={lastChecked ? `Última verificación: ${lastChecked.toLocaleTimeString()} · se actualiza cada 30s` : 'Se actualiza cada 30s'}
+          expanded={expandedSections.matching}
+          onToggle={() => toggleSection('matching')}
+        >
+          <View style={[styles.statusPill, matchingStatus === 'online' ? styles.statusOnline : matchingStatus === 'offline' ? styles.statusOffline : styles.statusChecking]}>
+            <Text style={styles.statusText}>
+              {matchingStatus === 'online' ? '● Activo' : matchingStatus === 'offline' ? '● Sin conexión' : '◌ Verificando...'}
             </Text>
-          )}
+          </View>
 
           {matchingReglas.length > 0 && (
             <View style={styles.reglasList}>
@@ -391,32 +446,44 @@ export default function DashboardScreen({ navigation }) {
           {Object.keys(matchingCoincidencias).length > 0 && (
             <View style={styles.reglasList}>
               <Text style={styles.subLabel}>Coincidencias por mis reportes</Text>
-              {Object.entries(matchingCoincidencias).map(([id, lista]) => (
-                <View key={id} style={styles.reglaRow}>
-                  <Text style={styles.reglaText}>Reporte #{id}</Text>
-                  <Text style={[styles.regraPeso, lista.length > 0 && styles.matchHit]}>
-                    {lista.length > 0 ? `${lista.length} coincidencia(s)` : 'Sin coincidencias'}
-                  </Text>
-                </View>
-              ))}
+              {Object.entries(matchingCoincidencias).map(([id, lista]) => {
+                const rep = myReports.find(r => String(r.id) === String(id));
+                const label = rep ? `${rep.name} #${id}` : `Reporte #${id}`;
+                return (
+                  <View key={id} style={styles.reglaRow}>
+                    <Text style={styles.reglaText}>{label}</Text>
+                    <Text style={[styles.regraPeso, lista.length > 0 && styles.matchHit]}>
+                      {lista.length > 0 ? `${lista.length} coincidencia(s)` : 'Sin coincidencias'}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           )}
 
           {matchingStatus === 'offline' && (
             <Text style={styles.emptyText}>No se pudo conectar con el motor de coincidencias.</Text>
           )}
-        </View>
+        </CollapsibleSection>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Últimos reportes</Text>
+        <CollapsibleSection
+          title="Últimos reportes"
+          hint={`Total: ${reportsOrdered.length}`}
+          expanded={expandedSections.latest}
+          onToggle={() => toggleSection('latest')}
+        >
           {pagedReports.map((report) => (
             <ReportCard key={report.id} report={report} onPress={() => navigation.navigate('ReportDetail', { reportId: report.id })} />
           ))}
           <Pagination totalPages={totalPages} page={page} setPage={setPage} />
-        </View>
+        </CollapsibleSection>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Reportes realizados</Text>
+        <CollapsibleSection
+          title="Reportes realizados"
+          hint={`Guardados en este dispositivo: ${myReports.length}`}
+          expanded={expandedSections.mine}
+          onToggle={() => toggleSection('mine')}
+        >
           {myReports.length === 0 && !loading && (
             <Text style={styles.emptyText}>Aún no has creado reportes desde este dispositivo.</Text>
           )}
@@ -433,21 +500,28 @@ export default function DashboardScreen({ navigation }) {
                 </Pressable>
                 {isExpanded && (
                   <View style={styles.mineActions}>
-                    <View style={[styles.statePill, report.status === 'Encontrado' ? styles.stateFound : styles.stateSearching]}>
+                    <View style={[styles.statePill, report.status === 'Encontrado' ? styles.stateFound : report.status === 'Avistamiento' ? styles.stateSighting : styles.stateSearching]}>
                       <Text style={styles.stateText}>{report.status}</Text>
                     </View>
                     <View style={styles.actionButtons}>
                       <PrimaryButton title="Editar" variant="ghost" onPress={() => navigation.navigate('PublishReport', { reportId: report.id })} style={styles.actionButton} />
                       <PrimaryButton title={deletingReportId === report.id ? 'Borrando...' : 'Borrar'} variant="ghost" onPress={() => requestDeleteReport(report)} style={styles.actionButton} />
                     </View>
-                    <PrimaryButton title="Cambiar contacto" onPress={() => navigation.navigate('Profile')} style={styles.contactButton} />
+                    {report.status !== 'Encontrado' && (
+                      <PrimaryButton
+                        title={markingFoundId === report.id ? 'Guardando...' : 'Marcar como encontrada'}
+                        onPress={() => { setReportToMarkFound(report); setFoundModalVisible(true); }}
+                        style={styles.contactButton}
+                      />
+                    )}
+                    <PrimaryButton title="Cambiar contacto" variant="ghost" onPress={() => navigation.navigate('Profile')} style={styles.contactButton} />
                   </View>
                 )}
               </View>
             );
           })}
           <Pagination totalPages={myTotalPages} page={myPage} setPage={setMyPage} />
-        </View>
+        </CollapsibleSection>
       </ScrollView>
       <ConfirmModal 
         visible={logoutModalVisible}
@@ -462,6 +536,13 @@ export default function DashboardScreen({ navigation }) {
         message={`¿Estás seguro de que deseas borrar ${reportToDelete?.name || 'este reporte'}? Esta acción no se puede deshacer.`}
         onConfirm={confirmDeleteReport}
         onCancel={cancelDeleteReport}
+      />
+      <ConfirmModal
+        visible={foundModalVisible}
+        title="Marcar como encontrada"
+        message={`¿Confirmas que la mascota "${reportToMarkFound?.name || ''}" fue encontrada? Esto cambiará el tipo de reporte a Mascota encontrada.`}
+        onConfirm={confirmMarkAsFound}
+        onCancel={() => { setFoundModalVisible(false); setReportToMarkFound(null); }}
       />
     </ScreenShell>
   );
@@ -513,9 +594,27 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 1
   },
-  sectionTitleRow: { gap: 6, marginBottom: 10 },
+  sectionTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 },
+  sectionHeading: { flex: 1, gap: 6 },
   sectionTitle: { fontSize: 22, fontWeight: '900', color: COLORS.text, letterSpacing: -0.2 },
   sectionHint: { color: COLORS.muted, fontSize: 12 },
+  sectionToggleIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.soft,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sectionFooterToggle: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  sectionFooterToggleText: { color: COLORS.secondary, fontSize: 12, fontWeight: '800' },
   pagination: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   pageChip: {
     minWidth: 36,
@@ -557,6 +656,7 @@ const styles = StyleSheet.create({
     borderRadius: 999
   },
   stateFound: { backgroundColor: '#dcfce7' },
+  stateSighting: { backgroundColor: '#ffedd5' },
   stateSearching: { backgroundColor: '#fee2e2' },
   stateText: { fontSize: 11, fontWeight: '800', color: COLORS.text },
   actionButtons: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
