@@ -77,7 +77,13 @@ export default {
   getMatches: reportId => api.get('/api/matching', { params: { reportId } }),
   getMatchingReglas: () => api.get('/api/matching/reglas/activas'),
   getCoincidenciasPorReporte: id => api.get(`/api/matching/reportes/${id}`),
-  syncCoincidencias: id => api.post(`/api/matching/sync/${id}`),
+  syncCoincidencias: async id => {
+  const solicitud = await api.post('/api/matching/solicitudes', {
+    idPerdidoReporte: id,
+    idEncontradoReporte: id
+  });
+  return api.post(`/api/matching/solicitudes/${solicitud.data.id}/procesar`);
+  },
   crearSolicitudCoincidencia: data => api.post('/api/matching/solicitudes', data),
   procesarCoincidencia: id => api.post(`/api/matching/solicitudes/${id}/procesar`),
   obtenerResultadoCoincidencia: id => api.get(`/api/matching/solicitudes/${id}/resultado`),
