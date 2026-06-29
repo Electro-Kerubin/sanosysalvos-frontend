@@ -216,25 +216,41 @@ export default function DashboardScreen({ navigation }) {
   }, [cancelDeleteReport, reportToDelete]);
 
   const confirmMarkAsFound = useCallback(async () => {
-    if (!reportToMarkFound?.id) { setFoundModalVisible(false); setReportToMarkFound(null); return; }
-    const reportId = reportToMarkFound.id;
-    setMarkingFoundId(reportId);
-    try {
-      const tiposRes = await api.getTiposReporte();
-      const tipos = tiposRes?.data || [];
-      const foundTipo = tipos.find(t => (t.descripcionTipoReporte || '').toLowerCase().includes('encontrad'));
-      if (!foundTipo) throw new Error('No se encontró el tipo "Mascota encontrada" en el catálogo.');
-      await api.updateReport(reportId, { idTipoReporte: foundTipo.idTipoReporte });
-      setReports(prev => prev.map(r => String(r.id) === String(reportId) ? { ...r, status: 'Encontrado' } : r));
-      setFoundModalVisible(false);
-      setReportToMarkFound(null);
-      setExpandedReportId(null);
-    } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'No se pudo marcar el reporte como encontrado.');
-    } finally {
-      setMarkingFoundId(null);
-    }
-  }, [reportToMarkFound]);
+  if (!reportToMarkFound?.id) { setFoundModalVisible(false); setReportToMarkFound(null); return; }
+  const reportId = reportToMarkFound.id;
+  setMarkingFoundId(reportId);
+  try {
+    const tiposRes = await api.getTiposReporte();
+    const tipos = tiposRes?.data || [];
+    const foundTipo = tipos.find(t => (t.descripcion || t.descripcionTipoReporte || '').toLowerCase().includes('encontrad'));
+    if (!foundTipo) throw new Error('No se encontró el tipo "Mascota encontrada" en el catálogo.');
+
+    // Obtener el reporte actual completo
+    const reporteRes = await api.getReport(reportId);
+    const reporteActual = reporteRes.data;
+
+    // Actualizar solo el tipo de reporte manteniendo el resto
+    await api.updateReport(reportId, {
+      idTipoReporte: foundTipo.idTipoReporte ?? foundTipo.id,
+      idEstatus: reporteActual.idEstatus,
+      idMascota: reporteActual.idMascota,
+      idContacto: reporteActual.idContacto,
+      idMarcaDistintiva: reporteActual.idMarcaDistintiva,
+      fechaExtravio: reporteActual.fechaExtravio,
+      fechaAvistamiento: reporteActual.fechaAvistamiento,
+      fechaReporte: reporteActual.fechaReporte,
+    });
+
+    setReports(prev => prev.map(r => String(r.id) === String(reportId) ? { ...r, status: 'Encontrado' } : r));
+    setFoundModalVisible(false);
+    setReportToMarkFound(null);
+    setExpandedReportId(null);
+  } catch (err) {
+    setError(err?.response?.data?.message || err?.message || 'No se pudo marcar el reporte como encontrado.');
+  } finally {
+    setMarkingFoundId(null);
+  }
+}, [reportToMarkFound]);
 
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
