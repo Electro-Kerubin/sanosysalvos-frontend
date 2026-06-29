@@ -349,7 +349,9 @@ export default function ReportDetailScreen({ navigation, route }) {
                 <Text style={styles.noMatch}>El motor aún no encontró coincidencias con puntaje ≥ {SCORE_MIN} pts.</Text>
               ) : (
                 coincidencias.map(c => {
-                  const contId = c.idReportePerdido === reportId ? c.idReporteEncontrado : c.idReportePerdido;
+                  const contId = String(c.idPerdidoReporte) === String(reportId) 
+                    ? c.idEncontradoReporte 
+                    : c.idPerdidoReporte;
                   const contDto = reportsMap[contId];
                   const tipoDesc = (contDto?.descripcionTipoReporte || '').toLowerCase();
                   const tipoLabel = tipoDesc.includes('encontrad') ? 'Encontrado' : 'Búsqueda';
