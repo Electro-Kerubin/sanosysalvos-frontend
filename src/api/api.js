@@ -28,18 +28,23 @@ async function getFromFirstAvailableRoute(routes) {
   throw lastError || new Error('No profile route available under /api/auth/**');
 }
 
-api.interceptors.request.use(async config => {
-  let token = await AsyncStorage.getItem('token');
-  if (!token && typeof window !== 'undefined' && window.localStorage) {
-    token = window.localStorage.getItem('token');
+api.interceptors.response.use(
+  response => response,
+  async error => {
+    if (error?.response?.status === 401) {
+      // Limpiar token expirado
+      await AsyncStorage.removeItem('token');
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('token');
+      }
+      // Redirigir al login — ajusta según tu router
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
   }
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  } else {
-    console.warn('api: no se encontró token para', config.url);
-  }
-  return config;
-});
+);
 
 export default {
   login: (email, password) => api.post('/api/auth/login', { email, contrasena: password }),
