@@ -31,19 +31,14 @@ async function getFromFirstAvailableRoute(routes) {
 api.interceptors.response.use(
   response => response,
   async error => {
-    const url = error?.config?.url || '';
+    // Solo limpiar el token si expira, sin redirigir automáticamente
     const status = error?.response?.status;
+    const url = error?.config?.url || '';
     
-    // No interceptar rutas de auth
-    const isAuthRoute = url.includes('/api/auth/');
-    
-    if (status === 401 && !isAuthRoute) {
+    if (status === 401 && !url.includes('/api/auth/')) {
       await AsyncStorage.removeItem('token');
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.removeItem('token');
-      }
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
       }
     }
     return Promise.reject(error);
