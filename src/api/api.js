@@ -32,13 +32,13 @@ api.interceptors.response.use(
   response => response,
   async error => {
     if (error?.response?.status === 401) {
-      // Limpiar token expirado
-      await AsyncStorage.removeItem('token');
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem('token');
-      }
-      // Redirigir al login — ajusta según tu router
-      if (typeof window !== 'undefined') {
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      // No redirigir si ya estamos en login
+      if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+        await AsyncStorage.removeItem('token');
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem('token');
+        }
         window.location.href = '/login';
       }
     }
