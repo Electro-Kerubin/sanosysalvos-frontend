@@ -17,7 +17,6 @@ async function getFromFirstAvailableRoute(routes) {
       return await api.get(route);
     } catch (error) {
       const status = error?.response?.status;
-      // Skip only missing route errors and continue trying known alternatives.
       if (status === 404) {
         lastError = error;
         continue;
@@ -31,7 +30,6 @@ async function getFromFirstAvailableRoute(routes) {
 
 api.interceptors.request.use(async config => {
   let token = await AsyncStorage.getItem('token');
-  // Fallback a localStorage en entorno web cuando AsyncStorage devuelve null
   if (!token && typeof window !== 'undefined' && window.localStorage) {
     token = window.localStorage.getItem('token');
   }
@@ -77,13 +75,7 @@ export default {
   getMatches: reportId => api.get('/api/matching', { params: { reportId } }),
   getMatchingReglas: () => api.get('/api/matching/reglas/activas'),
   getCoincidenciasPorReporte: id => api.get(`/api/matching/reportes/${id}`),
-  syncCoincidencias: async id => {
-  const solicitud = await api.post('/api/matching/solicitudes', {
-    idPerdidoReporte: id,
-    idEncontradoReporte: id
-  });
-  return api.post(`/api/matching/solicitudes/${solicitud.data.id}/procesar`);
-  },
+  syncCoincidencias: id => api.post(`/api/matching/sync/${id}`),
   crearSolicitudCoincidencia: data => api.post('/api/matching/solicitudes', data),
   procesarCoincidencia: id => api.post(`/api/matching/solicitudes/${id}/procesar`),
   obtenerResultadoCoincidencia: id => api.get(`/api/matching/solicitudes/${id}/resultado`),
