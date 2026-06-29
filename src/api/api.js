@@ -31,14 +31,18 @@ async function getFromFirstAvailableRoute(routes) {
 api.interceptors.response.use(
   response => response,
   async error => {
-    if (error?.response?.status === 401) {
-      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-      // No redirigir si ya estamos en login
-      if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
-        await AsyncStorage.removeItem('token');
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.removeItem('token');
-        }
+    const url = error?.config?.url || '';
+    const status = error?.response?.status;
+    
+    // No interceptar rutas de auth
+    const isAuthRoute = url.includes('/api/auth/');
+    
+    if (status === 401 && !isAuthRoute) {
+      await AsyncStorage.removeItem('token');
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('token');
+      }
+      if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
     }
