@@ -41,23 +41,17 @@ api.interceptors.request.use(async config => {
   return config;
 });
 
-api.interceptors.response.use(
-  response => response,
-  async error => {
-    const status = error?.response?.status;
-    const url = error?.config?.url || '';
-
-    if (status === 401 && !url.includes('/api/auth/')) {
-      await AsyncStorage.removeItem('token');
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem('token');
-      }
-      // Limpiar también el header de axios
-      delete api.defaults.headers.common['Authorization'];
-    }
-    return Promise.reject(error);
+api.interceptors.request.use(config => {
+  // En web, leer directamente de localStorage (síncrono)
+  let token = null;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    token = window.localStorage.getItem('token');
   }
-);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // Exportar instancia para inyectar token directamente tras login
 export { api as axiosInstance };
