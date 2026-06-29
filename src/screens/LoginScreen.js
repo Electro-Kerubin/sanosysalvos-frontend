@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet, Pressable, Image, ActivityIndicator 
 import ScreenShell from '../components/ScreenShell';
 import PrimaryButton from '../components/PrimaryButton';
 import { COLORS } from '../styles/theme';
-import api from '../api/api';
+import api, { axiosInstance } from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen({ navigation }) {
@@ -14,8 +14,6 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     setLoading(true);
 
-    // MODO DEV: Inicio de sesión rápido con datos de prueba.
-    // __DEV__ es una variable global en React Native/Expo que es true en desarrollo.
     if (
       __DEV__ &&
       email.toLowerCase() === 'test@test.com' &&
@@ -28,6 +26,8 @@ export default function LoginScreen({ navigation }) {
           phone: '912345678',
         };
         const mockToken = 'mock-jwt-token-for-dev-only';
+
+        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${mockToken}`;
 
         await AsyncStorage.setItem('profile', JSON.stringify(mockProfile));
         await AsyncStorage.setItem('token', mockToken);
@@ -49,26 +49,31 @@ export default function LoginScreen({ navigation }) {
     }
 
     try {
-      // Llama al API Gateway -> Microservicio de Autenticación
       const response = await api.login(email, password);
       
       const { token, nombreCompleto, rol } = response.data;
+
+      // Inyectar token en axios inmediatamente para evitar race condition
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
       await AsyncStorage.multiSet([
         ['token', token],
         ['nombreCompleto', nombreCompleto ?? ''],
         ['rol', rol ?? ''],
       ]);
+
       const profile = {
         name: nombreCompleto ?? '',
         email,
         phone: '',
       };
       await AsyncStorage.setItem('profile', JSON.stringify(profile));
-      // Guardar también en localStorage como respaldo para web
+
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem('token', token);
         window.localStorage.setItem('profile', JSON.stringify(profile));
       }
+
       navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
       
     } catch (error) {

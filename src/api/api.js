@@ -28,22 +28,39 @@ async function getFromFirstAvailableRoute(routes) {
   throw lastError || new Error('No profile route available under /api/auth/**');
 }
 
+api.interceptors.request.use(async config => {
+  let token = await AsyncStorage.getItem('token');
+  if (!token && typeof window !== 'undefined' && window.localStorage) {
+    token = window.localStorage.getItem('token');
+  }
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    console.warn('api: no se encontró token para', config.url);
+  }
+  return config;
+});
+
 api.interceptors.response.use(
   response => response,
   async error => {
-    // Solo limpiar el token si expira, sin redirigir automáticamente
     const status = error?.response?.status;
     const url = error?.config?.url || '';
-    
+
     if (status === 401 && !url.includes('/api/auth/')) {
       await AsyncStorage.removeItem('token');
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.removeItem('token');
       }
+      // Limpiar también el header de axios
+      delete api.defaults.headers.common['Authorization'];
     }
     return Promise.reject(error);
   }
 );
+
+// Exportar instancia para inyectar token directamente tras login
+export { api as axiosInstance };
 
 export default {
   login: (email, password) => api.post('/api/auth/login', { email, contrasena: password }),
