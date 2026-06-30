@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,17 +11,13 @@ import {
   useWindowDimensions,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import * as ImagePicker from 'expo-image-picker';
 import api from '../api/api';
-import socketManager from '../services/socketManager';
 
 export default function InboxScreen({ navigation }) {
   const { width } = useWindowDimensions();
-  const isWide = width >= 768; // Diseño dividido tipo WhatsApp Web para pantallas anchas
+  const isWide = width >= 768;
 
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -30,211 +26,153 @@ export default function InboxScreen({ navigation }) {
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [newChatEmail, setNewChatEmail] = useState('');
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [error, setError] = useState(null);
 
   const scrollViewRef = useRef(null);
-  const activeChat = chats.find((c) => c.id === activeChatId);
+  const pollingRef = useRef(null);
+  const activeChat = chats.find(c => String(c.idConversacion) === String(activeChatId));
 
-  useEffect(() => {
-    loadChats();
-    setupSocket();
+  // ── Cargar conversaciones ─────────────────────────────────────
+  const loadChats = useCallback(async () => {
+    try {
+      const res = await api.get('/api/chat/conversaciones');
+      setChats(res.data || []);
+    } catch (err) {
+      console.warn('Error cargando chats:', err?.message);
+    } finally {
+      setLoadingChats(false);
+    }
   }, []);
 
-  useEffect(() => {
-    if (activeChatId) {
-      loadMessages(activeChatId);
-    } else {
-      setMessages([]);
+  // ── Cargar mensajes ───────────────────────────────────────────
+  const loadMessages = useCallback(async (chatId, showLoader = false) => {
+    if (!chatId) return;
+    if (showLoader) setLoadingMessages(true);
+    try {
+      const res = await api.get(`/api/chat/conversaciones/${chatId}/mensajes`);
+      setMessages(res.data || []);
+    } catch (err) {
+      console.warn('Error cargando mensajes:', err?.message);
+    } finally {
+      if (showLoader) setLoadingMessages(false);
     }
-  }, [activeChatId]);
+  }, []);
 
+  // ── Scroll al último mensaje ──────────────────────────────────
   useEffect(() => {
     if (messages.length > 0 && scrollViewRef.current) {
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [messages]);
 
-  const setupSocket = async () => {
-    try {
-      const me = await api.get('/auth/me');
-      if (socketManager.isReady() || me.data?.id) {
-        await socketManager.connect(me.data.id);
-        socketManager.on('new_private_message', (msg) => {
-          setMessages((prev) => [...prev, msg]);
-          loadChats(); // Actualiza el último mensaje en la lista
-        });
-      }
-    } catch (e) {
-      console.warn('WebSocket fallback offline');
-    }
-  };
+  // ── Carga inicial de chats ────────────────────────────────────
+  useEffect(() => {
+    loadChats();
+  }, [loadChats]);
 
-  const loadChats = async () => {
-    try {
-      // El backend debe proveer este endpoint devolviendo el listado de chats del usuario
-      const response = await api.get('/chats');
-      setChats(response.data || []);
-    } catch (error) {
-      console.error('Error cargando chats:', error);
-    } finally {
-      setLoadingChats(false);
-    }
-  };
+  // ── Polling cada 3 segundos cuando hay chat activo ────────────
+  useEffect(() => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
 
-  const loadMessages = async (chatId) => {
-    try {
-      setLoadingMessages(true);
-      const response = await api.get(`/chats/${chatId}/messages`);
-      setMessages(response.data || []);
-    } catch (error) {
-      console.error('Error cargando mensajes:', error);
-      Alert.alert('Error', 'No se pudieron cargar los mensajes');
-    } finally {
-      setLoadingMessages(false);
+    if (!activeChatId) {
+      setMessages([]);
+      return;
     }
-  };
 
-  const handleSendMessage = async (type = 'text', payload = null) => {
+    loadMessages(activeChatId, true);
+
+    pollingRef.current = setInterval(() => {
+      loadMessages(activeChatId, false);
+      loadChats();
+    }, 3000);
+
+    return () => clearInterval(pollingRef.current);
+  }, [activeChatId, loadMessages, loadChats]);
+
+  // ── Enviar mensaje ────────────────────────────────────────────
+  const handleSendMessage = async () => {
     const text = messageInput.trim();
-    if (type === 'text' && !text) return;
-
+    if (!text || !activeChatId) return;
+    setSending(true);
     try {
-      setSending(true);
-      let response;
-
-      if (type === 'text') {
-        response = await api.post(`/chats/${activeChatId}/messages`, { text });
-      } else if (type === 'photo') {
-        const formData = new FormData();
-        formData.append('photo', {
-          uri: payload.uri,
-          type: 'image/jpeg',
-          name: `chat-img-${Date.now()}.jpg`,
-        });
-        response = await api.post(`/chats/${activeChatId}/messages/media`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-      } else if (type === 'location') {
-        response = await api.post(`/chats/${activeChatId}/messages`, {
-          text: '📍 Ubicación compartida',
-          latitude: payload.latitude,
-          longitude: payload.longitude,
-        });
-      }
-
-      setMessages((prev) => [...prev, response.data]);
+      const res = await api.post(`/api/chat/conversaciones/${activeChatId}/mensajes`, {
+        contenido: text,
+      });
+      setMessages(prev => [...prev, res.data]);
       setMessageInput('');
-      loadChats(); // Para refrescar el último mensaje en el panel izquierdo
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo enviar el mensaje.');
+      loadChats();
+    } catch (err) {
+      setError('No se pudo enviar el mensaje.');
     } finally {
       setSending(false);
     }
   };
 
-  const pickImage = async () => {
+  // ── Crear nueva conversación ──────────────────────────────────
+  const handleNewChat = async () => {
+    const email = newChatEmail.trim();
+    if (!email) return;
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.7,
-      });
-      if (!result.canceled) {
-        handleSendMessage('photo', result.assets[0]);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo acceder a la galería');
+      const res = await api.post('/api/chat/conversaciones', { emailOtroUsuario: email });
+      setNewChatEmail('');
+      setShowNewChat(false);
+      await loadChats();
+      setActiveChatId(res.data.idConversacion);
+    } catch (err) {
+      setError('No se pudo crear la conversación. Verifica el email.');
     }
   };
 
-  const shareLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        return Alert.alert('Permiso denegado', 'Se requiere acceso a la ubicación.');
-      }
-      const location = await Location.getCurrentPositionAsync({});
-      handleSendMessage('location', location.coords);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo obtener la ubicación');
-    }
-  };
-
-  // Reglas de negocio para Nombres de Chat y Archivo
-  const getChatTitle = (chat) => {
-    if (!chat) return '';
-    const petName = chat.report?.petName || 'Mascota';
-    if (chat.isOwner) {
-      // Si el usuario es el publicador del reporte
-      return `${petName} - ${chat.otherUser?.name || 'Usuario'}`;
-    } else {
-      // Si el usuario es quien le habló al publicador
-      return `${petName} - ${chat.report?.ownerName || 'Dueño'}`;
-    }
-  };
-
-  const isChatArchived = (chat) => {
-    if (!chat) return false;
-    const status = (chat.report?.status || '').toLowerCase();
-    return status === 'encontrado' || status === 'completado';
-  };
-
+  // ── Renderizado de item de chat ───────────────────────────────
   const renderChatItem = ({ item }) => {
-    const isArchived = isChatArchived(item);
-    const isActive = activeChatId === item.id;
-
+    const isActive = String(activeChatId) === String(item.idConversacion);
     return (
       <TouchableOpacity
         style={[styles.chatListItem, isActive && styles.chatListItemActive]}
-        onPress={() => setActiveChatId(item.id)}
+        onPress={() => setActiveChatId(item.idConversacion)}
       >
         <View style={styles.chatListAvatar}>
           <Ionicons name="person" size={24} color="#999" />
         </View>
         <View style={styles.chatListContent}>
           <Text style={styles.chatListTitle} numberOfLines={1}>
-            {getChatTitle(item)}
+            {item.otroUsuario || 'Usuario'}
           </Text>
           <Text style={styles.chatListPreview} numberOfLines={1}>
-            {item.lastMessage || 'Sin mensajes'}
+            {item.ultimoMensaje || 'Sin mensajes'}
           </Text>
         </View>
-        {isArchived && (
-          <View style={styles.archivedBadge}>
-            <Text style={styles.archivedBadgeText}>Archivado</Text>
-          </View>
-        )}
       </TouchableOpacity>
     );
   };
 
+  // ── Renderizado de mensaje ────────────────────────────────────
   const renderMessage = ({ item }) => (
-    <View style={[styles.messageWrapper, item.isOwn ? styles.messageOwn : styles.messageOther]}>
-      <View style={[styles.messageBubble, item.isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
-        {item.mediaUrl && (
-          <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} />
-        )}
-        {item.latitude && item.longitude && (
-          <View style={styles.locationWrapper}>
-            <Ionicons name="location" size={32} color={item.isOwn ? '#fff' : '#FF6B6B'} />
-            <Text style={[styles.locationText, item.isOwn && { color: '#fff' }]}>Ubicación compartida</Text>
-          </View>
-        )}
-        {item.text && (
-          <Text style={[styles.messageText, item.isOwn && styles.messageTextOwn]}>{item.text}</Text>
-        )}
-        <Text style={[styles.messageTime, item.isOwn && { color: '#e0e0e0' }]}>
-          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+    <View style={[styles.messageWrapper, item.esPropio ? styles.messageOwn : styles.messageOther]}>
+      <View style={[styles.messageBubble, item.esPropio ? styles.bubbleOwn : styles.bubbleOther]}>
+        <Text style={[styles.messageText, item.esPropio && styles.messageTextOwn]}>
+          {item.contenido}
+        </Text>
+        <Text style={[styles.messageTime, item.esPropio && { color: '#e0e0e0' }]}>
+          {item.createdAt
+            ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : ''}
         </Text>
       </View>
     </View>
   );
 
-  // Layout dinámico
   const showLeftPanel = isWide || !activeChatId;
   const showRightPanel = isWide || activeChatId;
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      {/* Cabecera general de la vista (simula Navbar) */}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      {/* Navbar */}
       <View style={styles.topNavbar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#333" />
@@ -242,34 +180,72 @@ export default function InboxScreen({ navigation }) {
         <Text style={styles.topNavTitle}>Mensajes</Text>
       </View>
 
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => setError(null)}>
+            <Ionicons name="close" size={16} color="#b91c1c" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.splitContainer}>
-        {/* PANEL IZQUIERDO: LISTA DE CHATS */}
+
+        {/* PANEL IZQUIERDO */}
         {showLeftPanel && (
           <View style={[styles.leftPanel, !isWide && { flex: 1 }]}>
             <View style={styles.leftPanelHeader}>
               <Text style={styles.panelTitle}>Mis Chats</Text>
+              <TouchableOpacity
+                onPress={() => setShowNewChat(v => !v)}
+                style={styles.newChatButton}
+              >
+                <Ionicons name="create-outline" size={22} color="#4A90E2" />
+              </TouchableOpacity>
             </View>
+
+            {showNewChat && (
+              <View style={styles.newChatBox}>
+                <TextInput
+                  style={styles.newChatInput}
+                  placeholder="Email del usuario..."
+                  value={newChatEmail}
+                  onChangeText={setNewChatEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+                <TouchableOpacity style={styles.newChatSend} onPress={handleNewChat}>
+                  <Text style={styles.newChatSendText}>Iniciar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {loadingChats ? (
               <ActivityIndicator size="large" color="#4A90E2" style={{ marginTop: 20 }} />
             ) : (
               <FlatList
                 data={chats}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={item => String(item.idConversacion)}
                 renderItem={renderChatItem}
-                ListEmptyComponent={<Text style={styles.emptyText}>No tienes conversaciones activas.</Text>}
+                ListEmptyComponent={
+                  <Text style={styles.emptyText}>No tienes conversaciones activas.</Text>
+                }
               />
             )}
           </View>
         )}
 
-        {/* PANEL DERECHO: CHAT ACTIVO */}
+        {/* PANEL DERECHO */}
         {showRightPanel && (
           <View style={[styles.rightPanel, !isWide && { flex: 1 }]}>
             {activeChatId && activeChat ? (
               <>
                 <View style={styles.chatHeader}>
                   {!isWide && (
-                    <TouchableOpacity onPress={() => setActiveChatId(null)} style={styles.mobileBackBtn}>
+                    <TouchableOpacity
+                      onPress={() => setActiveChatId(null)}
+                      style={styles.mobileBackBtn}
+                    >
                       <Ionicons name="chevron-back" size={24} color="#333" />
                     </TouchableOpacity>
                   )}
@@ -277,12 +253,10 @@ export default function InboxScreen({ navigation }) {
                     <Ionicons name="person" size={20} color="#666" />
                   </View>
                   <View style={styles.chatHeaderInfo}>
-                    <Text style={styles.chatHeaderTitle}>{getChatTitle(activeChat)}</Text>
-                    {isChatArchived(activeChat) ? (
-                      <Text style={styles.chatHeaderSubtitleArchived}>Reporte concluido</Text>
-                    ) : (
-                      <Text style={styles.chatHeaderSubtitle}>En curso</Text>
-                    )}
+                    <Text style={styles.chatHeaderTitle}>
+                      {activeChat.otroUsuario || 'Usuario'}
+                    </Text>
+                    <Text style={styles.chatHeaderSubtitle}>En línea</Text>
                   </View>
                 </View>
 
@@ -293,56 +267,47 @@ export default function InboxScreen({ navigation }) {
                     <FlatList
                       ref={scrollViewRef}
                       data={messages}
-                      keyExtractor={(item) => item.id.toString()}
+                      keyExtractor={item => String(item.idMensaje)}
                       renderItem={renderMessage}
                       contentContainerStyle={styles.messagesList}
                     />
                   )}
                 </View>
 
-                {/* Input Area */}
-                {isChatArchived(activeChat) ? (
-                  <View style={styles.archivedBanner}>
-                    <Ionicons name="lock-closed" size={18} color="#999" />
-                    <Text style={styles.archivedBannerText}>
-                      Este chat ha sido archivado porque el reporte se marcó como resuelto.
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={styles.inputSection}>
-                    <TouchableOpacity style={styles.actionIconButton} onPress={pickImage}>
-                      <Ionicons name="camera-outline" size={24} color="#666" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionIconButton} onPress={shareLocation}>
-                      <Ionicons name="location-outline" size={24} color="#666" />
-                    </TouchableOpacity>
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Escribe un mensaje..."
-                      value={messageInput}
-                      onChangeText={setMessageInput}
-                      multiline
-                      editable={!sending}
-                    />
-                    <TouchableOpacity
-                      style={[styles.sendButton, (!messageInput.trim() || sending) && { opacity: 0.5 }]}
-                      onPress={() => handleSendMessage('text')}
-                      disabled={!messageInput.trim() || sending}
-                    >
-                      {sending ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <Ionicons name="send" size={20} color="#fff" />
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                )}
+                <View style={styles.inputSection}>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Escribe un mensaje..."
+                    value={messageInput}
+                    onChangeText={setMessageInput}
+                    multiline
+                    editable={!sending}
+                    onSubmitEditing={handleSendMessage}
+                  />
+                  <TouchableOpacity
+                    style={[styles.sendButton, (!messageInput.trim() || sending) && { opacity: 0.5 }]}
+                    onPress={handleSendMessage}
+                    disabled={!messageInput.trim() || sending}
+                  >
+                    {sending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Ionicons name="send" size={20} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                </View>
               </>
             ) : (
               <View style={styles.placeholderContainer}>
-                <Image source={require('../../assets/images/index.png')} style={styles.placeholderImage} resizeMode="contain" />
-                <Text style={styles.placeholderText}>Sanos y Salvos Web</Text>
-                <Text style={styles.placeholderSub}>Selecciona un chat para comenzar a enviar mensajes.</Text>
+                <Image
+                  source={require('../../assets/images/index.png')}
+                  style={styles.placeholderImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.placeholderText}>Sanos y Salvos</Text>
+                <Text style={styles.placeholderSub}>
+                  Selecciona un chat o inicia una nueva conversación.
+                </Text>
               </View>
             )}
           </View>
@@ -366,6 +331,17 @@ const styles = StyleSheet.create({
   },
   backButton: { marginRight: 16, padding: 4 },
   topNavTitle: { fontSize: 18, fontWeight: '700', color: '#333' },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#fee2e2',
+    borderBottomWidth: 1,
+    borderBottomColor: '#fca5a5',
+  },
+  errorText: { color: '#b91c1c', fontSize: 13, fontWeight: '600', flex: 1 },
   splitContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -373,7 +349,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  // PANEL IZQUIERDO
   leftPanel: {
     width: 350,
     backgroundColor: '#fff',
@@ -382,13 +357,41 @@ const styles = StyleSheet.create({
   },
   leftPanelHeader: {
     height: 65,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     backgroundColor: '#f8f9fa',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   panelTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  newChatButton: { padding: 6 },
+  newChatBox: {
+    flexDirection: 'row',
+    padding: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#f8f9fa',
+  },
+  newChatInput: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  newChatSend: {
+    backgroundColor: '#4A90E2',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
+  newChatSendText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   emptyText: { textAlign: 'center', marginTop: 30, color: '#999', fontSize: 14 },
   chatListItem: {
     flexDirection: 'row',
@@ -410,17 +413,7 @@ const styles = StyleSheet.create({
   chatListContent: { flex: 1 },
   chatListTitle: { fontSize: 15, fontWeight: '600', color: '#333', marginBottom: 4 },
   chatListPreview: { fontSize: 13, color: '#888' },
-  archivedBadge: {
-    backgroundColor: '#eee',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 6,
-  },
-  archivedBadgeText: { fontSize: 10, color: '#666', fontWeight: 'bold' },
-
-  // PANEL DERECHO
-  rightPanel: { flex: 1, backgroundColor: '#efeae2' }, // Fondo similar a WSP
+  rightPanel: { flex: 1, backgroundColor: '#efeae2' },
   chatHeader: {
     height: 65,
     backgroundColor: '#f8f9fa',
@@ -443,9 +436,7 @@ const styles = StyleSheet.create({
   chatHeaderInfo: { flex: 1 },
   chatHeaderTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   chatHeaderSubtitle: { fontSize: 12, color: '#4CAF50' },
-  chatHeaderSubtitleArchived: { fontSize: 12, color: '#999', fontStyle: 'italic' },
-  
-  chatFeed: { flex: 1, backgroundColor: 'transparent' },
+  chatFeed: { flex: 1 },
   messagesList: { padding: 16, paddingBottom: 24 },
   messageWrapper: { marginBottom: 12, width: '100%', flexDirection: 'row' },
   messageOwn: { justifyContent: 'flex-end' },
@@ -465,18 +456,13 @@ const styles = StyleSheet.create({
   messageText: { fontSize: 14, color: '#333', lineHeight: 20 },
   messageTextOwn: { color: '#fff' },
   messageTime: { fontSize: 10, color: '#999', alignSelf: 'flex-end', marginTop: 4 },
-  messageImage: { width: 220, height: 220, borderRadius: 8, marginBottom: 8 },
-  locationWrapper: { alignItems: 'center', justifyContent: 'center', padding: 10 },
-  locationText: { fontSize: 13, color: '#666', marginTop: 4, fontWeight: '600' },
-
-  // INPUT
   inputSection: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: 12,
     backgroundColor: '#f0f0f0',
+    gap: 8,
   },
-  actionIconButton: { padding: 10, justifyContent: 'center', alignItems: 'center' },
   textInput: {
     flex: 1,
     backgroundColor: '#fff',
@@ -485,7 +471,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 15,
     maxHeight: 100,
-    marginHorizontal: 8,
   },
   sendButton: {
     width: 44,
@@ -494,23 +479,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#4A90E2',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
   },
-  archivedBanner: {
-    flexDirection: 'row',
+  placeholderContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    gap: 8,
+    backgroundColor: '#f8f9fa',
   },
-  archivedBannerText: { color: '#666', fontSize: 13, fontStyle: 'italic', textAlign: 'center' },
-  
-  // PLACEHOLDER NO CHAT
-  placeholderContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' },
   placeholderImage: { width: 200, height: 200, opacity: 0.6 },
   placeholderText: { fontSize: 24, color: '#666', fontWeight: 'bold', marginTop: 16 },
-  placeholderSub: { fontSize: 14, color: '#999', marginTop: 8 },
+  placeholderSub: { fontSize: 14, color: '#999', marginTop: 8, textAlign: 'center', paddingHorizontal: 40 },
 });
