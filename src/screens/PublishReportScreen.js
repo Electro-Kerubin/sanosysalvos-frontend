@@ -274,26 +274,35 @@ export default function PublishReportScreen({ navigation, route }) {
     ...mergeOptions(especies, speciesSuggestions, { id: OTHER_SPECIES_ID, descripcion: 'Otro' }),
   ], [especies, speciesSuggestions]);
 
+  const razasFiltradas = useMemo(() => {
+  if (!idEspecie || idEspecie === OTHER_SPECIES_ID || String(idEspecie).startsWith('custom-')) {
+    return razas;
+  }
+  return razas.filter(r => r.idEspecie == null || String(r.idEspecie) === String(idEspecie));
+}, [razas, idEspecie]);
+
   const razasConOtro = useMemo(() => [
-    ...mergeOptions(razas, breedSuggestions, { id: OTHER_BREED_ID, descripcion: 'Otro' }),
-  ], [razas, breedSuggestions]);
+    ...mergeOptions(razasFiltradas, breedSuggestions, { id: OTHER_BREED_ID, descripcion: 'Otro' }),
+  ], [razasFiltradas, breedSuggestions]);
 
   const marcasConOtro = useMemo(() => [
     ...mergeOptions(marcas, [], { id: OTHER_MARK_ID, descripcion: 'Otro' }),
   ], [marcas]);
 
   const handleSpeciesChange = useCallback((value, description) => {
-    setIdEspecie(value);
-    if (String(value).startsWith('custom-')) {
-      setEspeciePersonalizada(description || '');
-      setEspecieConfirmada(description || '');
-      return;
-    }
-    if (value !== OTHER_SPECIES_ID) {
-      setEspeciePersonalizada('');
-      setEspecieConfirmada('');
-    }
-  }, []);
+  setIdEspecie(value);
+  if (String(value).startsWith('custom-')) {
+    setEspeciePersonalizada(description || '');
+    setEspecieConfirmada(description || '');
+  } else if (value !== OTHER_SPECIES_ID) {
+    setEspeciePersonalizada('');
+    setEspecieConfirmada('');
+  }
+  // Reset de raza al cambiar especie
+  setIdRaza(null);
+  setRazaPersonalizada('');
+  setRazaConfirmada('');
+}, []);
 
   const handleConfirmCustomSpecies = useCallback(() => {
     const trimmed = especiePersonalizada.trim();
@@ -795,13 +804,29 @@ export default function PublishReportScreen({ navigation, route }) {
         {/* FECHAS */}
         <SectionTitle title="Fechas" />
 
-        <Field label="Fecha de extravío">
-          <DatePickerInput value={fechaExtravio} onChange={setFechaExtravio} />
-        </Field>
+        {(() => {
+          const tipoSeleccionado = tiposReporte.find(t => String(t.id) === String(idTipoReporte));
+          const esPerdida = (tipoSeleccionado?.descripcion || '').toLowerCase().includes('perdid');
+          const esAvistamiento = (tipoSeleccionado?.descripcion || '').toLowerCase().includes('avistamiento');
 
-        <Field label="Fecha de avistamiento">
-          <DatePickerInput value={fechaAvistamiento} onChange={setFechaAvistamiento} />
-        </Field>
+          if (esPerdida) {
+            return (
+              <Field label="Fecha de extravío">
+                <DatePickerInput value={fechaExtravio} onChange={setFechaExtravio} />
+              </Field>
+            );
+          }
+          if (esAvistamiento) {
+            return (
+              <Field label="Fecha de avistamiento">
+                <DatePickerInput value={fechaAvistamiento} onChange={setFechaAvistamiento} />
+              </Field>
+            );
+          }
+          return (
+            <Text style={styles.detectingText}>Selecciona el tipo de reporte para indicar la fecha.</Text>
+          );
+        })()}
 
         {/* UBICACIÓN */}
         <SectionTitle title="Ubicación del avistamiento" />
