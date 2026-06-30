@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../api/api';
+import { axiosInstance } from '../api/api';
 
 export default function InboxScreen({ navigation }) {
   const { width } = useWindowDimensions();
@@ -34,10 +34,9 @@ export default function InboxScreen({ navigation }) {
   const pollingRef = useRef(null);
   const activeChat = chats.find(c => String(c.idConversacion) === String(activeChatId));
 
-  // ── Cargar conversaciones ─────────────────────────────────────
   const loadChats = useCallback(async () => {
     try {
-      const res = await api.get('/api/chat/conversaciones');
+      const res = await axiosInstance.get('/api/chat/conversaciones');
       setChats(res.data || []);
     } catch (err) {
       console.warn('Error cargando chats:', err?.message);
@@ -46,12 +45,11 @@ export default function InboxScreen({ navigation }) {
     }
   }, []);
 
-  // ── Cargar mensajes ───────────────────────────────────────────
   const loadMessages = useCallback(async (chatId, showLoader = false) => {
     if (!chatId) return;
     if (showLoader) setLoadingMessages(true);
     try {
-      const res = await api.get(`/api/chat/conversaciones/${chatId}/mensajes`);
+      const res = await axiosInstance.get(`/api/chat/conversaciones/${chatId}/mensajes`);
       setMessages(res.data || []);
     } catch (err) {
       console.warn('Error cargando mensajes:', err?.message);
@@ -60,19 +58,16 @@ export default function InboxScreen({ navigation }) {
     }
   }, []);
 
-  // ── Scroll al último mensaje ──────────────────────────────────
   useEffect(() => {
     if (messages.length > 0 && scrollViewRef.current) {
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [messages]);
 
-  // ── Carga inicial de chats ────────────────────────────────────
   useEffect(() => {
     loadChats();
   }, [loadChats]);
 
-  // ── Polling cada 3 segundos cuando hay chat activo ────────────
   useEffect(() => {
     if (pollingRef.current) clearInterval(pollingRef.current);
 
@@ -91,13 +86,12 @@ export default function InboxScreen({ navigation }) {
     return () => clearInterval(pollingRef.current);
   }, [activeChatId, loadMessages, loadChats]);
 
-  // ── Enviar mensaje ────────────────────────────────────────────
   const handleSendMessage = async () => {
     const text = messageInput.trim();
     if (!text || !activeChatId) return;
     setSending(true);
     try {
-      const res = await api.post(`/api/chat/conversaciones/${activeChatId}/mensajes`, {
+      const res = await axiosInstance.post(`/api/chat/conversaciones/${activeChatId}/mensajes`, {
         contenido: text,
       });
       setMessages(prev => [...prev, res.data]);
@@ -110,12 +104,11 @@ export default function InboxScreen({ navigation }) {
     }
   };
 
-  // ── Crear nueva conversación ──────────────────────────────────
   const handleNewChat = async () => {
     const email = newChatEmail.trim();
     if (!email) return;
     try {
-      const res = await api.post('/api/chat/conversaciones', { emailOtroUsuario: email });
+      const res = await axiosInstance.post('/api/chat/conversaciones', { emailOtroUsuario: email });
       setNewChatEmail('');
       setShowNewChat(false);
       await loadChats();
@@ -125,7 +118,6 @@ export default function InboxScreen({ navigation }) {
     }
   };
 
-  // ── Renderizado de item de chat ───────────────────────────────
   const renderChatItem = ({ item }) => {
     const isActive = String(activeChatId) === String(item.idConversacion);
     return (
@@ -148,7 +140,6 @@ export default function InboxScreen({ navigation }) {
     );
   };
 
-  // ── Renderizado de mensaje ────────────────────────────────────
   const renderMessage = ({ item }) => (
     <View style={[styles.messageWrapper, item.esPropio ? styles.messageOwn : styles.messageOther]}>
       <View style={[styles.messageBubble, item.esPropio ? styles.bubbleOwn : styles.bubbleOther]}>
@@ -172,7 +163,6 @@ export default function InboxScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      {/* Navbar */}
       <View style={styles.topNavbar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#333" />
@@ -191,7 +181,6 @@ export default function InboxScreen({ navigation }) {
 
       <View style={styles.splitContainer}>
 
-        {/* PANEL IZQUIERDO */}
         {showLeftPanel && (
           <View style={[styles.leftPanel, !isWide && { flex: 1 }]}>
             <View style={styles.leftPanelHeader}>
@@ -235,7 +224,6 @@ export default function InboxScreen({ navigation }) {
           </View>
         )}
 
-        {/* PANEL DERECHO */}
         {showRightPanel && (
           <View style={[styles.rightPanel, !isWide && { flex: 1 }]}>
             {activeChatId && activeChat ? (
